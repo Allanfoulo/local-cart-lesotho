@@ -33,14 +33,78 @@ export const seedShop: Shop = {
 };
 
 export const seedCategories: Category[] = [
-  { id: "cat_produce", slug: "fresh-produce", name: "Fresh Produce", emoji: "🥬", accent: "leaf", enabled: true, order: 1 },
-  { id: "cat_groceries", slug: "groceries", name: "Groceries", emoji: "🛒", accent: "wheat", enabled: true, order: 2 },
-  { id: "cat_drinks", slug: "drinks", name: "Drinks", emoji: "🥤", accent: "sky", enabled: true, order: 3 },
-  { id: "cat_snacks", slug: "snacks", name: "Snacks", emoji: "🍿", accent: "sun", enabled: true, order: 4 },
-  { id: "cat_household", slug: "household", name: "Household", emoji: "🧻", accent: "clay", enabled: true, order: 5 },
-  { id: "cat_personal", slug: "personal-care", name: "Personal Care", emoji: "🧼", accent: "rose", enabled: true, order: 6 },
-  { id: "cat_bakery", slug: "bread-bakery", name: "Bread & Bakery", emoji: "🍞", accent: "wheat", enabled: true, order: 7 },
-  { id: "cat_specials", slug: "specials", name: "Specials", emoji: "🏷️", accent: "leaf", enabled: true, order: 8 },
+  {
+    id: "cat_produce",
+    slug: "fresh-produce",
+    name: "Fresh Produce",
+    emoji: "🥬",
+    accent: "leaf",
+    enabled: true,
+    order: 1,
+  },
+  {
+    id: "cat_groceries",
+    slug: "groceries",
+    name: "Groceries",
+    emoji: "🛒",
+    accent: "wheat",
+    enabled: true,
+    order: 2,
+  },
+  {
+    id: "cat_drinks",
+    slug: "drinks",
+    name: "Drinks",
+    emoji: "🥤",
+    accent: "sky",
+    enabled: true,
+    order: 3,
+  },
+  {
+    id: "cat_snacks",
+    slug: "snacks",
+    name: "Snacks",
+    emoji: "🍿",
+    accent: "sun",
+    enabled: true,
+    order: 4,
+  },
+  {
+    id: "cat_household",
+    slug: "household",
+    name: "Household",
+    emoji: "🧻",
+    accent: "clay",
+    enabled: true,
+    order: 5,
+  },
+  {
+    id: "cat_personal",
+    slug: "personal-care",
+    name: "Personal Care",
+    emoji: "🧼",
+    accent: "rose",
+    enabled: true,
+    order: 6,
+  },
+  {
+    id: "cat_bakery",
+    slug: "bread-bakery",
+    name: "Bread & Bakery",
+    emoji: "🍞",
+    accent: "wheat",
+    enabled: true,
+    order: 7,
+  },
+  {
+    id: "cat_specials",
+    slug: "specials",
+    name: "Specials",
+    emoji: "🏷️",
+    accent: "leaf",
+    enabled: true,
+    order: 8,
+  },
 ];
 
 let n = 0;
@@ -55,7 +119,10 @@ function p(
   extra: Partial<Product> = {},
 ): Product {
   n += 1;
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
   return {
     id: `prd_${n}`,
     slug,
@@ -65,7 +132,7 @@ function p(
     price,
     unit,
     soldByWeight: unit === "kg",
-    weightOptions: unit === "kg" ? [0.5, 1, 1.5, 2] : undefined,
+    ...(unit === "kg" ? { weightOptions: [0.5, 1, 1.5, 2] } : {}),
     stock: 40,
     lowStockThreshold: 10,
     available: true,
@@ -79,8 +146,7 @@ function p(
 export const seedProducts: Product[] = [
   // Fresh produce
   p("Tomatoes", "cat_produce", 12, "kg", "🍅", {
-    description:
-      "Fresh, locally sourced tomatoes. Great for cooking, salads and everyday meals.",
+    description: "Fresh, locally sourced tomatoes. Great for cooking, salads and everyday meals.",
     popularity: 100,
     stock: 50,
   }),
@@ -106,7 +172,7 @@ export const seedProducts: Product[] = [
   p("Sugar 2.5kg", "cat_groceries", 52, "pack", "🧂", { popularity: 82, stock: 25 }),
   p("Salt 1kg", "cat_groceries", 12, "pack", "🧂", { popularity: 50, stock: 40 }),
   p("Eggs 30 Pack", "cat_groceries", 85, "pack", "🥚", { popularity: 90, stock: 20 }),
-  p("2L Milk", "cat_groceries", 32, "litre", "🥛", { popularity: 94, stock: 15 }),
+  p("2L Milk", "cat_groceries", 32, "each", "🥛", { popularity: 94, stock: 15 }),
   p("Beans 1kg", "cat_groceries", 34, "pack", "🫘", { popularity: 58, stock: 22 }),
   p("Peanut Butter 400g", "cat_groceries", 38, "each", "🥜", { popularity: 54, stock: 19 }),
   p("Tea Bags 100s", "cat_groceries", 42, "pack", "🍵", { popularity: 66, stock: 27 }),
@@ -120,7 +186,7 @@ export const seedProducts: Product[] = [
   p("Scones 4 Pack", "cat_bakery", 22, "pack", "🧁", { popularity: 44, stock: 12 }),
 
   // Drinks
-  p("Soft Drink 2L", "cat_drinks", 22, "litre", "🥤", { popularity: 91, stock: 44 }),
+  p("Soft Drink 2L", "cat_drinks", 22, "each", "🥤", { popularity: 91, stock: 44 }),
   p("Soft Drink Crate", "cat_drinks", 75, "crate", "🧃", {
     popularity: 64,
     stock: 9,
@@ -147,7 +213,11 @@ export const seedProducts: Product[] = [
   p("Dishwashing Liquid 750ml", "cat_household", 32, "each", "🧽", { popularity: 58, stock: 21 }),
   p("Bleach 750ml", "cat_household", 24, "each", "🧪", { popularity: 44, stock: 20 }),
   p("Matches 10 Pack", "cat_household", 10, "pack", "🔥", { popularity: 36, stock: 40 }),
-  p("Candles 6 Pack", "cat_household", 26, "pack", "🕯️", { popularity: 34, stock: 0, available: false }),
+  p("Candles 6 Pack", "cat_household", 26, "pack", "🕯️", {
+    popularity: 34,
+    stock: 0,
+    available: false,
+  }),
 
   // Personal care
   p("Bath Soap 175g", "cat_personal", 14, "each", "🧼", { popularity: 66, stock: 42 }),
@@ -158,23 +228,103 @@ export const seedProducts: Product[] = [
 ];
 
 export const seedCustomers: Customer[] = [
-  { id: "cus_1", name: "Thabo Molefi", phone: "+266 5888 1234", email: "thabo@gmail.com", orders: 12, lifetimeSpend: 1240, lastOrder: daysAgo(1) },
-  { id: "cus_2", name: "'Mareo Letsie", phone: "+266 5777 4321", orders: 8, lifetimeSpend: 860, lastOrder: daysAgo(3) },
-  { id: "cus_3", name: "Neo Ramathe", phone: "+266 5666 7890", orders: 5, lifetimeSpend: 420, lastOrder: daysAgo(6) },
-  { id: "cus_4", name: "Pulane Mokoena", phone: "+266 5898 1111", orders: 3, lifetimeSpend: 310, lastOrder: daysAgo(9) },
+  {
+    id: "cus_1",
+    name: "Thabo Molefi",
+    phone: "+266 5888 1234",
+    email: "thabo@gmail.com",
+    orders: 12,
+    lifetimeSpend: 1240,
+    lastOrder: daysAgo(1),
+  },
+  {
+    id: "cus_2",
+    name: "'Mareo Letsie",
+    phone: "+266 5777 4321",
+    orders: 8,
+    lifetimeSpend: 860,
+    lastOrder: daysAgo(3),
+  },
+  {
+    id: "cus_3",
+    name: "Neo Ramathe",
+    phone: "+266 5666 7890",
+    orders: 5,
+    lifetimeSpend: 420,
+    lastOrder: daysAgo(6),
+  },
+  {
+    id: "cus_4",
+    name: "Pulane Mokoena",
+    phone: "+266 5898 1111",
+    orders: 3,
+    lifetimeSpend: 310,
+    lastOrder: daysAgo(9),
+  },
 ];
 
 export const seedPromotions: Promotion[] = [
-  { id: "promo_1", name: "10% off all vegetables", type: "percentage", value: 10, startDate: daysAgo(20), endDate: daysAgo(-10), active: true },
-  { id: "promo_2", name: "M20 off orders over M300", type: "fixed", value: 20, startDate: daysAgo(15), endDate: daysAgo(-5), active: true },
-  { id: "promo_3", name: "Cooking Oil 2L special price", type: "product_price", value: 49, startDate: daysAgo(8), endDate: daysAgo(-14), active: true },
-  { id: "promo_4", name: "EASTER10 coupon", type: "coupon", value: 10, code: "EASTER10", startDate: daysAgo(-3), endDate: daysAgo(-30), active: false },
+  {
+    id: "promo_1",
+    name: "10% off all vegetables",
+    type: "percentage",
+    value: 10,
+    categoryId: "cat_produce",
+    startDate: daysAgo(20),
+    endDate: daysAgo(-10),
+    active: true,
+  },
+  {
+    id: "promo_2",
+    name: "M20 off orders over M300",
+    type: "fixed",
+    value: 20,
+    minimumSpend: 300,
+    startDate: daysAgo(15),
+    endDate: daysAgo(-5),
+    active: true,
+  },
+  {
+    id: "promo_3",
+    name: "Cooking Oil 2L special price",
+    type: "product_price",
+    value: 49,
+    productId: "prd_13",
+    startDate: daysAgo(8),
+    endDate: daysAgo(-14),
+    active: true,
+  },
+  {
+    id: "promo_4",
+    name: "EASTER10 coupon",
+    type: "coupon",
+    value: 10,
+    code: "EASTER10",
+    startDate: daysAgo(-3),
+    endDate: daysAgo(-30),
+    active: false,
+  },
 ];
 
 export const seedNotificationPreferences: NotificationPreference[] = [
-  { id: "np_order", label: "Order updates", description: "SMS when your order status changes", enabled: true },
-  { id: "np_specials", label: "Weekly specials", description: "Hear about deals every Thursday", enabled: true },
-  { id: "np_restock", label: "Back in stock", description: "Tell me when a favourite returns", enabled: false },
+  {
+    id: "np_order",
+    label: "Order updates",
+    description: "SMS when your order status changes",
+    enabled: true,
+  },
+  {
+    id: "np_specials",
+    label: "Weekly specials",
+    description: "Hear about deals every Thursday",
+    enabled: true,
+  },
+  {
+    id: "np_restock",
+    label: "Back in stock",
+    description: "Tell me when a favourite returns",
+    enabled: false,
+  },
 ];
 
 function orderItem(product: Product, quantity: number) {
@@ -209,9 +359,13 @@ function buildOrder(
   const createdAt = new Date(Date.now() - hoursAgo * 3600000).toISOString();
   const total = Number((subtotal + seedShop.deliveryFee).toFixed(2));
   return {
-    id: number.toLowerCase(),
+    id: number.toLowerCase().replace("#", ""),
     number,
-    customer: { name: customer.name, phone: customer.phone, email: customer.email },
+    customer: {
+      name: customer.name,
+      phone: customer.phone,
+      ...(customer.email ? { email: customer.email } : {}),
+    },
     items: orderItems,
     address: {
       area,
@@ -222,7 +376,7 @@ function buildOrder(
     payment: {
       ...payment,
       changeRequired:
-        payment.cashGiven != null ? Number((payment.cashGiven - total).toFixed(2)) : undefined,
+        payment.cashGiven != null ? Number((payment.cashGiven - total).toFixed(2)) : 0,
     },
     subtotal,
     deliveryFee: seedShop.deliveryFee,
@@ -231,8 +385,11 @@ function buildOrder(
     status,
     createdAt,
     estimatedDelivery: new Date(Date.now() - hoursAgo * 3600000 + 7200000).toISOString(),
-    driver: status === "out_for_delivery" ? "Moshe Thabane" : undefined,
-    timeline: [{ status: "created", at: createdAt }, { status, at: createdAt }],
+    ...(status === "out_for_delivery" ? { driver: "Moshe Thabane" } : {}),
+    timeline: [
+      { status: "created", at: createdAt },
+      { status, at: createdAt },
+    ],
   };
 }
 
@@ -240,7 +397,11 @@ export const seedOrders: Order[] = [
   buildOrder(
     "#ORD-1042",
     seedCustomers[0]!,
-    [["Tomatoes", 1.5], ["Brown Bread", 1], ["2L Milk", 1]],
+    [
+      ["Tomatoes", 1.5],
+      ["Brown Bread", 1],
+      ["2L Milk", 1],
+    ],
     "preparing",
     2,
     { method: "cash_on_delivery", status: "pending", cashGiven: 100 },
@@ -249,7 +410,10 @@ export const seedOrders: Order[] = [
   buildOrder(
     "#ORD-1041",
     seedCustomers[1]!,
-    [["Maize Meal 10kg", 1], ["Cooking Oil 2L", 1]],
+    [
+      ["Maize Meal 10kg", 1],
+      ["Cooking Oil 2L", 1],
+    ],
     "confirmed",
     5,
     { method: "mobile_money", provider: "EcoCash", status: "paid" },
@@ -258,7 +422,11 @@ export const seedOrders: Order[] = [
   buildOrder(
     "#ORD-1040",
     seedCustomers[2]!,
-    [["Eggs 30 Pack", 1], ["Potatoes", 2], ["2-Ply Tissue", 4]],
+    [
+      ["Eggs 30 Pack", 1],
+      ["Potatoes", 2],
+      ["2-Ply Tissue", 4],
+    ],
     "ready",
     9,
     { method: "cash_on_delivery", status: "pending", exactAmount: true },
@@ -267,7 +435,10 @@ export const seedOrders: Order[] = [
   buildOrder(
     "#ORD-1039",
     seedCustomers[3]!,
-    [["Soft Drink Crate", 1], ["Potato Chips 125g", 3]],
+    [
+      ["Soft Drink Crate", 1],
+      ["Potato Chips 125g", 3],
+    ],
     "out_for_delivery",
     12,
     { method: "mobile_money", provider: "M-Pesa", status: "paid" },
@@ -276,7 +447,11 @@ export const seedOrders: Order[] = [
   buildOrder(
     "#ORD-1038",
     seedCustomers[0]!,
-    [["Brown Bread", 2], ["Bananas", 1], ["Washing Powder 2kg", 1]],
+    [
+      ["Brown Bread", 2],
+      ["Bananas", 1],
+      ["Washing Powder 2kg", 1],
+    ],
     "delivered",
     30,
     { method: "cash_on_delivery", status: "paid", cashGiven: 150 },
@@ -285,7 +460,11 @@ export const seedOrders: Order[] = [
   buildOrder(
     "#ORD-1037",
     seedCustomers[1]!,
-    [["Rice 2kg", 1], ["Sugar 2.5kg", 1], ["Tea Bags 100s", 1]],
+    [
+      ["Rice 2kg", 1],
+      ["Sugar 2.5kg", 1],
+      ["Tea Bags 100s", 1],
+    ],
     "delivered",
     54,
     { method: "mobile_money", provider: "EcoCash", status: "paid" },

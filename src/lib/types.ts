@@ -7,6 +7,7 @@ export type PricingUnit = "each" | "pack" | "kg" | "gram" | "litre" | "crate";
 export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
 
 export interface Shop {
+  logoUrl?: string;
   id: string;
   name: string;
   tagline: string;
@@ -24,6 +25,7 @@ export interface Shop {
 }
 
 export interface Category {
+  imageUrl?: string;
   id: string;
   slug: string;
   name: string;
@@ -40,6 +42,7 @@ export interface ProductVariant {
 }
 
 export interface Product {
+  imageUrl?: string;
   id: string;
   slug: string;
   name: string;
@@ -95,13 +98,7 @@ export interface Payment {
 }
 
 export type OrderStatus =
-  | "received"
-  | "confirmed"
-  | "preparing"
-  | "ready"
-  | "out_for_delivery"
-  | "delivered"
-  | "cancelled";
+  "received" | "confirmed" | "preparing" | "ready" | "out_for_delivery" | "delivered" | "cancelled";
 
 export interface OrderEvent {
   status: OrderStatus | "created" | "note";
@@ -142,6 +139,9 @@ export interface Customer {
 }
 
 export interface Promotion {
+  categoryId?: string;
+  productId?: string;
+  minimumSpend?: number;
   id: string;
   name: string;
   type: "percentage" | "fixed" | "product_price" | "coupon";

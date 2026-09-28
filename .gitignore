@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 .output
+.netlify/
 .vinxi
 .tanstack/**
 .nitro
@@ -30,3 +31,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local verification outputs
+artifacts/
+test-results/
+playwright-report/
+vite-demo.err
