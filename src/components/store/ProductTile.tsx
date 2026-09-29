@@ -3,12 +3,19 @@ import { cn } from "@/lib/utils";
 const TILES = ["tile-leaf", "tile-wheat", "tile-sky", "tile-sun", "tile-clay", "tile-rose"];
 
 // On-brand product photography, keyed by product slug (file name).
-const IMAGES = import.meta.glob<string>("@/assets/products/*.jpg", {
+const JPG_IMAGES = import.meta.glob<string>("@/assets/products/*.jpg", {
+  eager: true,
+  import: "default",
+});
+const PNG_IMAGES = import.meta.glob<string>("@/assets/products/*.png", {
   eager: true,
   import: "default",
 });
 const BY_SLUG: Record<string, string> = Object.fromEntries(
-  Object.entries(IMAGES).map(([path, src]) => [path.split("/").pop()!.replace(".jpg", ""), src]),
+  [...Object.entries(JPG_IMAGES), ...Object.entries(PNG_IMAGES)].map(([path, src]) => [
+    path.split("/").pop()!.replace(/\.(jpg|png)$/, ""),
+    src,
+  ]),
 );
 
 function slugify(name: string) {

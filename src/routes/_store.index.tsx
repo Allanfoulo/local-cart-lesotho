@@ -1,7 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowRight, Clock, Truck, Wallet } from "lucide-react";
 
-import hero from "@/assets/hero-groceries.jpg";
 import { ProductCard } from "@/components/store/ProductCard";
 import { Button } from "@/components/ui/button";
 import { filterProducts, useAppStore } from "@/lib/app-store";
@@ -51,7 +50,7 @@ function HomePage() {
             </div>
           </div>
           <img
-            src={hero}
+            src="/promotional/home-groceries.png"
             alt="Fresh vegetables and groceries"
             className="h-48 w-full object-cover md:h-full"
             width={1024}
@@ -79,8 +78,13 @@ function HomePage() {
                 search={{ category: c.slug }}
                 className="flex w-20 shrink-0 flex-col items-center gap-1.5 md:w-auto"
               >
-                <span className={`tile-${c.accent} flex size-16 items-center justify-center rounded-2xl text-3xl`}>
-                  {c.emoji}
+                <span className={`tile-${c.accent} flex size-16 items-center justify-center overflow-hidden rounded-2xl text-3xl`}>
+                  <img
+                    src={`/categories/${c.slug}.png`}
+                    alt=""
+                    className="size-full object-cover"
+                    loading="lazy"
+                  />
                 </span>
                 <span className="text-center text-xs font-medium leading-tight">{c.name}</span>
               </Link>
