@@ -14,7 +14,7 @@ Give the demo catalogue one coherent, practical photography direction that can g
 
 ## Catalogue coverage and assets
 
-Create one distinct image for each of the 50 seeded products and one image for each of the eight seeded categories, including Specials. Product images are square. Category and promotional compositions use a wider landscape crop. All artwork is photorealistic, clean, easy to identify, and free of watermarks or floating decorative objects.
+Create one distinct image for each of the 48 seeded products and one image for each of the eight seeded categories, including Specials. Product images are square. Category and promotional compositions use a wider landscape crop. All artwork is photorealistic, clean, easy to identify, and free of watermarks or floating decorative objects.
 
 Product assets use stable slug-based paths under `public/products/`; category assets use the category slug under `public/categories/`. Seeded product and category records point to these local assets. Product admin image overrides remain supported. Prices, promotions, product names, and availability remain live interface text and are never embedded in images.
 
