@@ -17,7 +17,7 @@ export function unitLabel(unit: PricingUnit): string {
     case "kg":
       return "/ kg";
     case "gram":
-      return "/ g";
+      return "/ 100g";
     case "litre":
       return "/ litre";
     case "crate":

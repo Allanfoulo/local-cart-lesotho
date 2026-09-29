@@ -1,17 +1,35 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+/**
+ * Single integration boundary for all application data.
+ *
+ * Today everything lives in memory (seeded) and is persisted to localStorage.
+ * To move to Convex later, replace the bodies of the actions below with
+ * mutations and the selectors with queries — component code does not change.
+ */
 import {
-  seedShop,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+
+import {
   seedCategories,
-  seedProducts,
-  seedOrders,
   seedCustomers,
-  seedPromotions,
   seedNotificationPreferences,
+  seedOrders,
+  seedProducts,
+  seedPromotions,
+  seedShop,
 } from "./seed";
 import type {
   CartItem,
   Category,
+  Customer,
   DeliveryAddress,
+  NotificationPreference,
   Order,
   OrderStatus,
   Payment,
@@ -19,17 +37,25 @@ import type {
   Promotion,
   Shop,
 } from "./types";
-import {
-  canTransition,
-  cartDiscount,
-  money,
-  productPrice,
-  validateCheckout,
-  validateQuantity,
-} from "./commerce";
 
-const KEY = "mabote-fresh-state-v2";
-const initialState = {
+const STORAGE_KEY = "mabote-fresh-state-v1";
+
+interface AppState {
+  shop: Shop;
+  categories: Category[];
+  products: Product[];
+  orders: Order[];
+  customers: Customer[];
+  promotions: Promotion[];
+  notificationPreferences: NotificationPreference[];
+  cart: CartItem[];
+  deliveryArea: string;
+  savedAddresses: DeliveryAddress[];
+  favourites: string[];
+  account: { name: string; phone: string; email?: string; signedIn: boolean };
+}
+
+const initialState: AppState = {
   shop: seedShop,
   categories: seedCategories,
   products: seedProducts,
@@ -37,374 +63,378 @@ const initialState = {
   customers: seedCustomers,
   promotions: seedPromotions,
   notificationPreferences: seedNotificationPreferences,
-  cart: [] as CartItem[],
+  cart: [],
   deliveryArea: seedShop.defaultDeliveryArea,
-  savedAddresses: [] as DeliveryAddress[],
-  favourites: [] as string[],
-  ownOrderIds: [] as string[],
-  coupon: "",
-  account: { name: "", phone: "", email: "", signedIn: false },
+  savedAddresses: [
+    {
+      id: "addr_1",
+      label: "Home",
+      area: "Ha-Mabote, Maseru",
+      address: "1234 Ha-Mabote",
+      landmark: "Opposite Mabote Primary School",
+      instructions: "Blue gate, second house after the shop.",
+    },
+  ],
+  favourites: ["prd_1", "prd_24"],
+  account: { name: "Thabo Molefi", phone: "+266 5888 1234", email: "thabo@gmail.com", signedIn: true },
 };
-type State = typeof initialState;
-function useStoreValue() {
-  const [state, setState] = useState<State>(initialState);
-  const [ready, setReady] = useState(false);
-  const ref = useRef(state);
+
+interface AppStoreValue extends AppState {
+  // cart
+  addToCart: (product: Product, quantity?: number) => void;
+  setCartQuantity: (productId: string, quantity: number) => void;
+  removeFromCart: (productId: string) => void;
+  clearCart: () => void;
+  cartCount: number;
+  cartSubtotal: number;
+  // storefront
+  setDeliveryArea: (area: string) => void;
+  toggleFavourite: (productId: string) => void;
+  // orders
+  placeOrder: (input: {
+    customer: { name: string; phone: string; email?: string };
+    address: DeliveryAddress;
+    payment: Payment;
+    discount?: number;
+  }) => Order;
+  updateOrderStatus: (orderId: string, status: OrderStatus, note?: string) => void;
+  assignDriver: (orderId: string, driver: string) => void;
+  reorder: (orderId: string) => { added: number; unavailable: string[]; priceChanged: string[] };
+  // admin
+  upsertProduct: (product: Product) => void;
+  removeProduct: (productId: string) => void;
+  setStock: (productId: string, stock: number, lowStockThreshold?: number) => void;
+  upsertCategory: (category: Category) => void;
+  upsertPromotion: (promotion: Promotion) => void;
+  updateShop: (patch: Partial<Shop>) => void;
+  toggleNotification: (id: string) => void;
+  saveAddress: (address: DeliveryAddress) => void;
+  removeAddress: (id: string) => void;
+}
+
+const AppStoreContext = createContext<AppStoreValue | null>(null);
+
+export function AppStoreProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<AppState>(initialState);
+
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (
-          Array.isArray(parsed.products) &&
-          Array.isArray(parsed.orders) &&
-          Array.isArray(parsed.cart)
-        )
-          ref.current = { ...initialState, ...parsed };
-      }
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) setState((prev) => ({ ...prev, ...(JSON.parse(raw) as Partial<AppState>) }));
     } catch {
-      /* start safely with demo data */
+      /* ignore corrupt storage */
     }
-    setState(ref.current);
-    setReady(true);
-    const sync = (event: StorageEvent) => {
-      if (event.key === KEY && event.newValue) {
-        try {
-          const next = JSON.parse(event.newValue);
-          if (
-            Array.isArray(next.products) &&
-            Array.isArray(next.orders) &&
-            Array.isArray(next.cart)
-          ) {
-            ref.current = { ...initialState, ...next };
-            setState(ref.current);
-          }
-        } catch {
-          /* ignore invalid data */
-        }
-      }
-    };
-    window.addEventListener("storage", sync);
-    return () => window.removeEventListener("storage", sync);
   }, []);
-  const change = (fn: (s: State) => State) => {
-    const next = fn(ref.current);
+
+  useEffect(() => {
     try {
-      localStorage.setItem(KEY, JSON.stringify(next));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
-      throw new Error("Your browser could not save changes. Free some storage and try again.");
+      /* storage full or unavailable */
     }
-    ref.current = next;
-    setState(next);
-  };
-  const itemFor = (p: Product, quantity: number, s: State): CartItem => ({
-    id: `ci_${p.id}`,
-    productId: p.id,
-    name: p.name,
-    unit: p.unit,
-    unitPrice: productPrice(p, s.promotions),
-    emoji: p.emoji,
-    quantity,
-    soldByWeight: p.soldByWeight,
-  });
-  const cart = state.cart.map((i) => {
-    const p = state.products.find((p) => p.id === i.productId);
-    return p ? itemFor(p, i.quantity, state) : i;
-  });
-  const cartSubtotal = money(cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0));
-  const discount = cartDiscount(cart, state.products, state.promotions, state.coupon);
-  const addToCart = (product: Product, quantity = 1) =>
-    change((s) => {
-      const p = s.products.find((p) => p.id === product.id);
-      if (!p) throw new Error("This product is no longer available.");
-      const qty = money((s.cart.find((i) => i.productId === p.id)?.quantity ?? 0) + quantity);
-      validateQuantity(p, qty);
-      return { ...s, cart: [...s.cart.filter((i) => i.productId !== p.id), itemFor(p, qty, s)] };
-    });
-  return {
-    ...state,
-    cart,
-    ready,
-    cartCount: cart.length,
-    cartSubtotal,
-    discount,
-    total: money(cartSubtotal + state.shop.deliveryFee - discount),
-    addToCart,
-    setCartQuantity: (id: string, quantity: number) =>
-      change((s) => {
-        if (quantity === 0) return { ...s, cart: s.cart.filter((i) => i.productId !== id) };
-        const p = s.products.find((p) => p.id === id);
-        if (!p) throw new Error("Product unavailable.");
-        validateQuantity(p, quantity);
-        return {
-          ...s,
-          cart: s.cart.map((i) => (i.productId === id ? itemFor(p, quantity, s) : i)),
-        };
-      }),
-    removeFromCart: (id: string) =>
-      change((s) => ({ ...s, cart: s.cart.filter((i) => i.productId !== id) })),
-    clearCart: () => change((s) => ({ ...s, cart: [], coupon: "" })),
-    setCoupon: (coupon: string) => change((s) => ({ ...s, coupon })),
-    setDeliveryArea: (deliveryArea: string) => change((s) => ({ ...s, deliveryArea })),
-    toggleFavourite: (id: string) =>
-      change((s) => ({
-        ...s,
-        favourites: s.favourites.includes(id)
-          ? s.favourites.filter((i) => i !== id)
-          : [...s.favourites, id],
-      })),
-    updateAccount: (patch: Partial<State["account"]>) =>
-      change((s) => ({ ...s, account: { ...s.account, ...patch } })),
-    placeOrder: (input: {
-      customer: Order["customer"];
-      address: DeliveryAddress;
-      payment: Payment;
-    }) => {
-      const s = ref.current;
-      if (
-        !input.customer.name.trim() ||
-        !/^(?:\+266)?[256]\d{7}$/.test(input.customer.phone.replace(/[\s-]/g, ""))
-      )
-        throw new Error("Enter a name and valid Lesotho phone number.");
-      if (!input.address.address.trim() || !s.shop.deliveryAreas.includes(input.address.area))
-        throw new Error("Enter an address in a supported delivery area.");
-      const currentCart = s.cart.map((i) => {
-        const p = s.products.find((p) => p.id === i.productId);
-        return p ? itemFor(p, i.quantity, s) : i;
-      });
-      const reduction = cartDiscount(currentCart, s.products, s.promotions, s.coupon);
-      const { subtotal, total } = validateCheckout(
-        currentCart,
-        s.products,
-        s.shop,
-        input.payment,
-        reduction,
-      );
-      const now = new Date().toISOString();
-      const sequence =
-        Math.max(1042, ...s.orders.map((o) => Number(o.number.replace(/\D/g, "")))) + 1;
-      const order: Order = {
-        id: `ord-${sequence}`,
-        number: `#ORD-${sequence}`,
-        ...input,
-        payment: {
-          ...input.payment,
-          status: "pending",
-          changeRequired:
-            input.payment.method === "cash_on_delivery" && !input.payment.exactAmount
-              ? money(input.payment.cashGiven! - total)
-              : 0,
-        },
-        items: currentCart.map((i) => ({ ...i, lineTotal: money(i.unitPrice * i.quantity) })),
-        subtotal,
-        total,
-        discount: reduction,
-        deliveryFee: s.shop.deliveryFee,
-        status: "received",
-        createdAt: now,
-        estimatedDelivery: new Date(Date.now() + 7200000).toISOString(),
-        timeline: [{ status: "received", at: now }],
-      };
-      change((prev) => ({
-        ...prev,
-        orders: [order, ...prev.orders],
-        ownOrderIds: [order.id, ...prev.ownOrderIds],
-        cart: [],
-        coupon: "",
-        products: prev.products.map((p) => ({
-          ...p,
-          stock: money(p.stock - (currentCart.find((i) => i.productId === p.id)?.quantity ?? 0)),
+  }, [state]);
+
+  const patch = useCallback((updater: (prev: AppState) => AppState) => setState(updater), []);
+
+  const value = useMemo<AppStoreValue>(() => {
+    const cartCount = state.cart.length;
+    const cartSubtotal = Number(
+      state.cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0).toFixed(2),
+    );
+
+    return {
+      ...state,
+      cartCount,
+      cartSubtotal,
+
+      addToCart: (product, quantity = product.soldByWeight ? 1 : 1) =>
+        patch((prev) => {
+          const existing = prev.cart.find((i) => i.productId === product.id);
+          if (existing) {
+            return {
+              ...prev,
+              cart: prev.cart.map((i) =>
+                i.productId === product.id
+                  ? { ...i, quantity: Number((i.quantity + quantity).toFixed(2)) }
+                  : i,
+              ),
+            };
+          }
+          const item: CartItem = {
+            id: `ci_${product.id}`,
+            productId: product.id,
+            name: product.name,
+            unit: product.unit,
+            unitPrice: product.promoPrice ?? product.price,
+            emoji: product.emoji,
+            quantity,
+            soldByWeight: product.soldByWeight,
+          };
+          return { ...prev, cart: [...prev.cart, item] };
+        }),
+
+      setCartQuantity: (productId, quantity) =>
+        patch((prev) => ({
+          ...prev,
+          cart:
+            quantity <= 0
+              ? prev.cart.filter((i) => i.productId !== productId)
+              : prev.cart.map((i) =>
+                  i.productId === productId
+                    ? { ...i, quantity: Number(quantity.toFixed(2)) }
+                    : i,
+                ),
         })),
-        customers: prev.customers.some((c) => c.phone === input.customer.phone)
-          ? prev.customers.map((c) =>
-              c.phone === input.customer.phone
-                ? {
-                    ...c,
-                    orders: c.orders + 1,
-                    lifetimeSpend: money(c.lifetimeSpend + total),
-                    lastOrder: now,
-                  }
-                : c,
-            )
-          : [
-              ...prev.customers,
-              {
-                ...input.customer,
-                id: crypto.randomUUID(),
-                orders: 1,
-                lifetimeSpend: total,
-                lastOrder: now,
-              },
-            ],
-      }));
-      return order;
-    },
-    updateOrderStatus: (id: string, status: OrderStatus, note?: string) =>
-      change((s) => {
-        const order = s.orders.find((o) => o.id === id);
-        if (!order || !canTransition(order.status, status))
-          throw new Error("This order cannot move to that status.");
-        if (status === "out_for_delivery" && !order.driver)
-          throw new Error("Assign a driver before dispatch.");
-        return {
-          ...s,
-          orders: s.orders.map((o) =>
-            o.id === id
+
+      removeFromCart: (productId) =>
+        patch((prev) => ({ ...prev, cart: prev.cart.filter((i) => i.productId !== productId) })),
+
+      clearCart: () => patch((prev) => ({ ...prev, cart: [] })),
+
+      setDeliveryArea: (area) => patch((prev) => ({ ...prev, deliveryArea: area })),
+
+      toggleFavourite: (productId) =>
+        patch((prev) => ({
+          ...prev,
+          favourites: prev.favourites.includes(productId)
+            ? prev.favourites.filter((id) => id !== productId)
+            : [...prev.favourites, productId],
+        })),
+
+      placeOrder: ({ customer, address, payment, discount = 0 }) => {
+        const subtotal = cartSubtotal;
+        const deliveryFee = state.shop.deliveryFee;
+        const total = Number((subtotal + deliveryFee - discount).toFixed(2));
+        const highest = state.orders.reduce((max, o) => {
+          const num = Number(o.number.replace(/\D/g, ""));
+          return num > max ? num : max;
+        }, 1042);
+        const number = `#ORD-${highest + 1}`;
+        const now = new Date();
+        const order: Order = {
+          id: number.toLowerCase().replace("#", ""),
+          number,
+          customer,
+          items: state.cart.map((item) => ({
+            ...item,
+            lineTotal: Number((item.unitPrice * item.quantity).toFixed(2)),
+          })),
+          address,
+          payment: {
+            ...payment,
+            changeRequired:
+              payment.cashGiven != null
+                ? Number((payment.cashGiven - total).toFixed(2))
+                : undefined,
+          },
+          subtotal,
+          deliveryFee,
+          discount,
+          total,
+          status: "received",
+          createdAt: now.toISOString(),
+          estimatedDelivery: new Date(now.getTime() + 2 * 3600000).toISOString(),
+          timeline: [
+            { status: "created", at: now.toISOString() },
+            { status: "received", at: now.toISOString() },
+          ],
+        };
+        patch((prev) => ({ ...prev, orders: [order, ...prev.orders], cart: [] }));
+        return order;
+      },
+
+      updateOrderStatus: (orderId, status, note) =>
+        patch((prev) => ({
+          ...prev,
+          orders: prev.orders.map((o) =>
+            o.id === orderId
               ? {
                   ...o,
                   status,
+                  payment:
+                    status === "delivered" ? { ...o.payment, status: "paid" } : o.payment,
+                  timeline: [...o.timeline, { status, at: new Date().toISOString(), note }],
+                }
+              : o,
+          ),
+        })),
+
+      assignDriver: (orderId, driver) =>
+        patch((prev) => ({
+          ...prev,
+          orders: prev.orders.map((o) =>
+            o.id === orderId
+              ? {
+                  ...o,
+                  driver,
                   timeline: [
                     ...o.timeline,
-                    { status, at: new Date().toISOString(), ...(note ? { note } : {}) },
+                    { status: "note", at: new Date().toISOString(), note: `Driver assigned: ${driver}` },
                   ],
                 }
               : o,
           ),
-          products:
-            status === "cancelled"
-              ? s.products.map((p) => ({
-                  ...p,
-                  stock: money(
-                    p.stock + (order.items.find((i) => i.productId === p.id)?.quantity ?? 0),
-                  ),
-                }))
-              : s.products,
-        };
-      }),
-    markPaid: (id: string) =>
-      change((s) => ({
-        ...s,
-        orders: s.orders.map((o) =>
-          o.id === id && o.status !== "cancelled"
-            ? {
-                ...o,
-                payment: { ...o.payment, status: "paid" },
-                timeline: [
-                  ...o.timeline,
-                  {
-                    status: "note",
-                    at: new Date().toISOString(),
-                    note: "Payment received and recorded by staff.",
-                  },
-                ],
-              }
-            : o,
-        ),
-      })),
-    assignDriver: (id: string, driver: string) =>
-      change((s) => ({
-        ...s,
-        orders: s.orders.map((o) =>
-          o.id === id
-            ? {
-                ...o,
-                driver: driver.trim(),
-                timeline: [
-                  ...o.timeline,
-                  {
-                    status: "note",
-                    at: new Date().toISOString(),
-                    note: `Driver assigned: ${driver.trim()}`,
-                  },
-                ],
-              }
-            : o,
-        ),
-      })),
-    reorder: (id: string) => {
-      const result = { added: 0, unavailable: [] as string[], priceChanged: [] as string[] };
-      change((s) => {
-        const order = s.orders.find((o) => o.id === id);
-        if (!order) return s;
-        const next = s.cart.map((i) => ({ ...i }));
+        })),
+
+      reorder: (orderId) => {
+        const order = state.orders.find((o) => o.id === orderId);
+        const result = { added: 0, unavailable: [] as string[], priceChanged: [] as string[] };
+        if (!order) return result;
+        const nextCart = [...state.cart];
         for (const item of order.items) {
-          const p = s.products.find((p) => p.id === item.productId);
-          if (!p || !p.available || p.stock <= 0) {
+          const product = state.products.find((prd) => prd.id === item.productId);
+          if (!product || !product.available || product.stock <= 0) {
             result.unavailable.push(item.name);
             continue;
           }
-          const existing = next.find((i) => i.productId === p.id);
-          const wanted = (existing?.quantity ?? 0) + item.quantity;
-          const quantity = Math.min(p.stock, wanted);
-          if (quantity < wanted) result.unavailable.push(`${p.name} (limited stock)`);
-          if (productPrice(p, s.promotions) !== item.unitPrice) result.priceChanged.push(p.name);
-          if (existing) Object.assign(existing, itemFor(p, quantity, s));
-          else next.push(itemFor(p, quantity, s));
-          result.added++;
+          const currentPrice = product.promoPrice ?? product.price;
+          if (currentPrice !== item.unitPrice) result.priceChanged.push(item.name);
+          const existing = nextCart.find((i) => i.productId === product.id);
+          if (existing) {
+            existing.quantity = Number((existing.quantity + item.quantity).toFixed(2));
+          } else {
+            nextCart.push({
+              id: `ci_${product.id}`,
+              productId: product.id,
+              name: product.name,
+              unit: product.unit,
+              unitPrice: currentPrice,
+              emoji: product.emoji,
+              quantity: item.quantity,
+              soldByWeight: product.soldByWeight,
+            });
+          }
+          result.added += 1;
         }
-        return { ...s, cart: next };
-      });
-      return result;
-    },
-    upsertProduct: (p: Product) =>
-      change((s) => ({
-        ...s,
-        products: s.products.some((i) => i.id === p.id)
-          ? s.products.map((i) => (i.id === p.id ? p : i))
-          : [...s.products, p],
-      })),
-    removeProduct: (id: string) =>
-      change((s) => ({ ...s, products: s.products.filter((p) => p.id !== id) })),
-    setStock: (id: string, stock: number, threshold?: number) => {
-      if (!Number.isFinite(stock) || stock < 0) throw new Error("Enter a valid stock quantity.");
-      change((s) => ({
-        ...s,
-        products: s.products.map((p) =>
-          p.id === id ? { ...p, stock, lowStockThreshold: threshold ?? p.lowStockThreshold } : p,
-        ),
-      }));
-    },
-    upsertCategory: (category: Category) =>
-      change((s) => ({
-        ...s,
-        categories: s.categories.some((c) => c.id === category.id)
-          ? s.categories.map((c) => (c.id === category.id ? category : c))
-          : [...s.categories, category],
-      })),
-    upsertPromotion: (promotion: Promotion) =>
-      change((s) => ({
-        ...s,
-        promotions: s.promotions.some((p) => p.id === promotion.id)
-          ? s.promotions.map((p) => (p.id === promotion.id ? promotion : p))
-          : [...s.promotions, promotion],
-      })),
-    updateShop: (patch: Partial<Shop>) => change((s) => ({ ...s, shop: { ...s.shop, ...patch } })),
-    toggleNotification: (id: string) =>
-      change((s) => ({
-        ...s,
-        notificationPreferences: s.notificationPreferences.map((p) =>
-          p.id === id ? { ...p, enabled: !p.enabled } : p,
-        ),
-      })),
-    saveAddress: (address: DeliveryAddress) =>
-      change((s) => ({
-        ...s,
-        savedAddresses: [
-          ...s.savedAddresses.filter((a) => !address.id || a.id !== address.id),
-          { ...address, id: address.id ?? crypto.randomUUID() },
-        ],
-      })),
-    removeAddress: (id: string) =>
-      change((s) => ({ ...s, savedAddresses: s.savedAddresses.filter((a) => a.id !== id) })),
-  };
+        patch((prev) => ({ ...prev, cart: nextCart }));
+        return result;
+      },
+
+      upsertProduct: (product) =>
+        patch((prev) => ({
+          ...prev,
+          products: prev.products.some((prd) => prd.id === product.id)
+            ? prev.products.map((prd) => (prd.id === product.id ? product : prd))
+            : [product, ...prev.products],
+        })),
+
+      removeProduct: (productId) =>
+        patch((prev) => ({ ...prev, products: prev.products.filter((p) => p.id !== productId) })),
+
+      setStock: (productId, stock, lowStockThreshold) =>
+        patch((prev) => ({
+          ...prev,
+          products: prev.products.map((p) =>
+            p.id === productId
+              ? {
+                  ...p,
+                  stock,
+                  lowStockThreshold: lowStockThreshold ?? p.lowStockThreshold,
+                  available: stock > 0 ? p.available : false,
+                }
+              : p,
+          ),
+        })),
+
+      upsertCategory: (category) =>
+        patch((prev) => ({
+          ...prev,
+          categories: prev.categories.some((c) => c.id === category.id)
+            ? prev.categories.map((c) => (c.id === category.id ? category : c))
+            : [...prev.categories, category],
+        })),
+
+      upsertPromotion: (promotion) =>
+        patch((prev) => ({
+          ...prev,
+          promotions: prev.promotions.some((pr) => pr.id === promotion.id)
+            ? prev.promotions.map((pr) => (pr.id === promotion.id ? promotion : pr))
+            : [promotion, ...prev.promotions],
+        })),
+
+      updateShop: (shopPatch) =>
+        patch((prev) => ({ ...prev, shop: { ...prev.shop, ...shopPatch } })),
+
+      toggleNotification: (id) =>
+        patch((prev) => ({
+          ...prev,
+          notificationPreferences: prev.notificationPreferences.map((np) =>
+            np.id === id ? { ...np, enabled: !np.enabled } : np,
+          ),
+        })),
+
+      saveAddress: (address) =>
+        patch((prev) => ({
+          ...prev,
+          savedAddresses: [
+            ...prev.savedAddresses,
+            { ...address, id: address.id ?? `addr_${prev.savedAddresses.length + 1}` },
+          ],
+        })),
+
+      removeAddress: (id) =>
+        patch((prev) => ({
+          ...prev,
+          savedAddresses: prev.savedAddresses.filter((a) => a.id !== id),
+        })),
+    };
+  }, [state, patch]);
+
+  return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;
 }
-const Context = createContext<ReturnType<typeof useStoreValue> | null>(null);
-export function AppStoreProvider({ children }: { children: ReactNode }) {
-  const value = useStoreValue();
-  return <Context.Provider value={value}>{children}</Context.Provider>;
-}
+
 export function useAppStore() {
-  const value = useContext(Context);
-  if (!value) throw new Error("Missing store provider");
-  return value;
+  const ctx = useContext(AppStoreContext);
+  if (!ctx) throw new Error("useAppStore must be used inside AppStoreProvider");
+  return ctx;
 }
-export const stockStatus = (p: Product) =>
-  !p.available || p.stock <= 0
-    ? "out_of_stock"
-    : p.stock <= p.lowStockThreshold
-      ? "low_stock"
-      : "in_stock";
-export const effectivePrice = (p: Product) => p.promoPrice ?? p.price;
+
+/* ---------- selectors (pure, easy to swap for Convex queries) ---------- */
+
+export function stockStatus(product: Product) {
+  if (!product.available || product.stock <= 0) return "out_of_stock" as const;
+  if (product.stock <= product.lowStockThreshold) return "low_stock" as const;
+  return "in_stock" as const;
+}
+
+export function effectivePrice(product: Product) {
+  return product.promoPrice ?? product.price;
+}
+
+export function filterProducts(
+  products: Product[],
+  options: {
+    search?: string;
+    categoryId?: string;
+    maxPrice?: number;
+    inStockOnly?: boolean;
+    sort?: "popular" | "price_asc" | "price_desc" | "newest";
+  },
+) {
+  const { search = "", categoryId, maxPrice, inStockOnly, sort = "popular" } = options;
+  const term = search.trim().toLowerCase();
+  let result = products.filter((p) => {
+    if (term && !p.name.toLowerCase().includes(term)) return false;
+    if (categoryId && p.categoryId !== categoryId) return false;
+    if (maxPrice != null && effectivePrice(p) > maxPrice) return false;
+    if (inStockOnly && stockStatus(p) === "out_of_stock") return false;
+    return true;
+  });
+  result = [...result].sort((a, b) => {
+    switch (sort) {
+      case "price_asc":
+        return effectivePrice(a) - effectivePrice(b);
+      case "price_desc":
+        return effectivePrice(b) - effectivePrice(a);
+      case "newest":
+        return b.createdAt.localeCompare(a.createdAt);
+      default:
+        return b.popularity - a.popularity;
+    }
+  });
+  return result;
+}
+
 export const ORDER_STATUS_FLOW: OrderStatus[] = [
   "received",
   "confirmed",
@@ -413,18 +443,21 @@ export const ORDER_STATUS_FLOW: OrderStatus[] = [
   "out_for_delivery",
   "delivered",
 ];
+
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  received: "Order received",
+  received: "Order Received",
   confirmed: "Confirmed",
   preparing: "Preparing",
-  ready: "Ready for delivery",
-  out_for_delivery: "Out for delivery",
+  ready: "Ready for Delivery",
+  out_for_delivery: "Out for Delivery",
   delivered: "Delivered",
   cancelled: "Cancelled",
 };
+
 export const PAYMENT_LABEL = {
-  mobile_money: "Mobile money",
-  cash_on_delivery: "Cash on delivery",
+  mobile_money: "Mobile Money",
+  cash_on_delivery: "Cash on Delivery",
   card: "Card",
-};
-export const MOBILE_MONEY_PROVIDERS = ["EcoCash", "M-Pesa"];
+} as const;
+
+export const MOBILE_MONEY_PROVIDERS = ["EcoCash", "M-Pesa", "Other mobile money"];
