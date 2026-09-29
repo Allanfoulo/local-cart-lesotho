@@ -10,7 +10,6 @@ import {
   ArrowLeft,
   Heart,
 } from "lucide-react";
-import hero from "@/assets/hero-groceries.jpg";
 import { useAppStore, stockStatus } from "@/lib/app-store";
 import { productPrice } from "@/lib/commerce";
 import { formatM, unitLabel } from "@/lib/format";
@@ -18,6 +17,7 @@ import { QuantityStepper } from "@/components/store/QuantityStepper";
 import { A, Empty, ProductGrid, ProductImage, SectionTitle, attempt } from "./shared";
 export function Categories({ full = false }: { full?: boolean }) {
   const s = useAppStore();
+  const [failedImages, setFailedImages] = useState<string[]>([]);
   return (
     <div className={full ? "category-full" : "categories-strip"}>
       {s.categories
@@ -26,8 +26,13 @@ export function Categories({ full = false }: { full?: boolean }) {
         .map((c) => (
           <A to={`/category/${c.slug}`} key={c.id} className="category-shortcut">
             <span className={`tile-${c.accent}`}>
-              {c.imageUrl ? (
-                <img src={c.imageUrl} alt="" className="size-full rounded-full object-cover" />
+              {!failedImages.includes(c.id) ? (
+                <img
+                  src={c.imageUrl || `/categories/${c.slug}.png`}
+                  alt=""
+                  className={full ? "size-full object-cover" : "size-full rounded-full object-cover"}
+                  onError={() => setFailedImages((ids) => [...ids, c.id])}
+                />
               ) : (
                 c.emoji
               )}
@@ -58,7 +63,7 @@ export function HomePage() {
   return (
     <>
       <section className="hero">
-        <img src={hero} alt="A fresh selection of groceries from your local shop" />
+        <img src="/promotional/home-groceries.png" alt="A fresh selection of groceries from your local shop" />
         <div className="hero-copy">
           <span className="hero-label">
             <Leaf size={15} />

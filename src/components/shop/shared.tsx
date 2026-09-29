@@ -69,24 +69,9 @@ export function Empty({
 export function Status({ status }: { status: OrderStatus }) {
   return <span className={`status status-${status}`}>{ORDER_STATUS_LABEL[status]}</span>;
 }
-const photos: Record<string, string> = {
-  Tomatoes: "1546094096-0df4bcaaa337",
-  Potatoes: "1518977676601-b53f82aba655",
-  Onions: "1508747703725-719777637510",
-  Carrots: "1447175008436-054170c2e979",
-  "Green Peppers": "1563565375-f3fdfdbefa83",
-  Bananas: "1571771894821-ce9b6c11b08e",
-  Apples: "1560806887-1e4cd0b6cbd6",
-  Oranges: "1547514701-42782101795e",
-  "Brown Bread": "1509440159596-0249088772ff",
-  "White Bread": "1509440159596-0249088772ff",
-  "Eggs 30 Pack": "1506976785307-8732e854ad03",
-  "2L Milk": "1563636619-e9143da7973b",
-};
 export function ProductImage({ product, large = false }: { product: Product; large?: boolean }) {
   const [failed, setFailed] = useState(false);
-  const src =
-    product.imageUrl || (photos[product.name] ? `/products/${photos[product.name]}.jpg` : "");
+  const src = product.imageUrl || `/products/${product.slug}.png`;
   return (
     <div className={`product-image ${large ? "large" : ""}`}>
       {src && !failed ? (

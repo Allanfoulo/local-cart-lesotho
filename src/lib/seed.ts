@@ -36,6 +36,7 @@ export const seedCategories: Category[] = [
   {
     id: "cat_produce",
     slug: "fresh-produce",
+    imageUrl: "/categories/fresh-produce.png",
     name: "Fresh Produce",
     emoji: "🥬",
     accent: "leaf",
@@ -45,6 +46,7 @@ export const seedCategories: Category[] = [
   {
     id: "cat_groceries",
     slug: "groceries",
+    imageUrl: "/categories/groceries.png",
     name: "Groceries",
     emoji: "🛒",
     accent: "wheat",
@@ -54,6 +56,7 @@ export const seedCategories: Category[] = [
   {
     id: "cat_drinks",
     slug: "drinks",
+    imageUrl: "/categories/drinks.png",
     name: "Drinks",
     emoji: "🥤",
     accent: "sky",
@@ -63,6 +66,7 @@ export const seedCategories: Category[] = [
   {
     id: "cat_snacks",
     slug: "snacks",
+    imageUrl: "/categories/snacks.png",
     name: "Snacks",
     emoji: "🍿",
     accent: "sun",
@@ -72,6 +76,7 @@ export const seedCategories: Category[] = [
   {
     id: "cat_household",
     slug: "household",
+    imageUrl: "/categories/household.png",
     name: "Household",
     emoji: "🧻",
     accent: "clay",
@@ -81,6 +86,7 @@ export const seedCategories: Category[] = [
   {
     id: "cat_personal",
     slug: "personal-care",
+    imageUrl: "/categories/personal-care.png",
     name: "Personal Care",
     emoji: "🧼",
     accent: "rose",
@@ -90,6 +96,7 @@ export const seedCategories: Category[] = [
   {
     id: "cat_bakery",
     slug: "bread-bakery",
+    imageUrl: "/categories/bread-bakery.png",
     name: "Bread & Bakery",
     emoji: "🍞",
     accent: "wheat",
@@ -99,6 +106,7 @@ export const seedCategories: Category[] = [
   {
     id: "cat_specials",
     slug: "specials",
+    imageUrl: "/categories/specials.png",
     name: "Specials",
     emoji: "🏷️",
     accent: "leaf",
@@ -126,6 +134,7 @@ function p(
   return {
     id: `prd_${n}`,
     slug,
+    imageUrl: `/products/${slug}.png`,
     name,
     description: `${name} from Mabote Fresh. Locally sourced where possible and checked by our team before it reaches your door.`,
     categoryId,

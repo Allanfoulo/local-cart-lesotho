@@ -589,6 +589,15 @@ small {
   border-radius: 14px;
   background: var(--card);
 }
+.category-full .category-shortcut > span {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  display: block;
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 0;
+}
 .category-shortcut small {
   display: flex;
   gap: 10px;
