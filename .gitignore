@@ -12,6 +12,7 @@ dist
 dist-ssr
 .output
 .netlify
+.superpowers/
 .vinxi
 .tanstack/**
 .nitro
