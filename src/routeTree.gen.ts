@@ -9,50 +9,247 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as StoreRouteImport } from './routes/_store'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as StoreIndexRouteImport } from './routes/_store.index'
+import { Route as StoreAccountRouteImport } from './routes/_store.account'
+import { Route as StoreCartRouteImport } from './routes/_store.cart'
+import { Route as StoreCheckoutRouteImport } from './routes/_store.checkout'
+import { Route as StoreOrdersRouteImport } from './routes/_store.orders'
+import { Route as StoreShopRouteImport } from './routes/_store.shop'
+import { Route as StoreOrderConfirmationIdRouteImport } from './routes/_store.order-confirmation.$id'
+import { Route as StoreProductsSlugRouteImport } from './routes/_store.products.$slug'
 
-const IndexRoute = IndexRouteImport.update({
+const StoreRoute = StoreRouteImport.update({
+  id: '/_store',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StoreIndexRoute = StoreIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => StoreRoute,
+} as any)
+const StoreAccountRoute = StoreAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => StoreRoute,
+} as any)
+const StoreCartRoute = StoreCartRouteImport.update({
+  id: '/cart',
+  path: '/cart',
+  getParentRoute: () => StoreRoute,
+} as any)
+const StoreCheckoutRoute = StoreCheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => StoreRoute,
+} as any)
+const StoreOrdersRoute = StoreOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => StoreRoute,
+} as any)
+const StoreShopRoute = StoreShopRouteImport.update({
+  id: '/shop',
+  path: '/shop',
+  getParentRoute: () => StoreRoute,
+} as any)
+const StoreOrderConfirmationIdRoute =
+  StoreOrderConfirmationIdRouteImport.update({
+    id: '/order-confirmation/$id',
+    path: '/order-confirmation/$id',
+    getParentRoute: () => StoreRoute,
+  } as any)
+const StoreProductsSlugRoute = StoreProductsSlugRouteImport.update({
+  id: '/products/$slug',
+  path: '/products/$slug',
+  getParentRoute: () => StoreRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof StoreIndexRoute
+  '/admin': typeof AdminRoute
+  '/account': typeof StoreAccountRoute
+  '/cart': typeof StoreCartRoute
+  '/checkout': typeof StoreCheckoutRoute
+  '/orders': typeof StoreOrdersRoute
+  '/shop': typeof StoreShopRoute
+  '/order-confirmation/$id': typeof StoreOrderConfirmationIdRoute
+  '/products/$slug': typeof StoreProductsSlugRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/account': typeof StoreAccountRoute
+  '/cart': typeof StoreCartRoute
+  '/checkout': typeof StoreCheckoutRoute
+  '/orders': typeof StoreOrdersRoute
+  '/shop': typeof StoreShopRoute
+  '/': typeof StoreIndexRoute
+  '/order-confirmation/$id': typeof StoreOrderConfirmationIdRoute
+  '/products/$slug': typeof StoreProductsSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_store': typeof StoreRouteWithChildren
+  '/admin': typeof AdminRoute
+  '/_store/account': typeof StoreAccountRoute
+  '/_store/cart': typeof StoreCartRoute
+  '/_store/checkout': typeof StoreCheckoutRoute
+  '/_store/orders': typeof StoreOrdersRoute
+  '/_store/shop': typeof StoreShopRoute
+  '/_store/': typeof StoreIndexRoute
+  '/_store/order-confirmation/$id': typeof StoreOrderConfirmationIdRoute
+  '/_store/products/$slug': typeof StoreProductsSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/account'
+    | '/cart'
+    | '/checkout'
+    | '/orders'
+    | '/shop'
+    | '/order-confirmation/$id'
+    | '/products/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/admin'
+    | '/account'
+    | '/cart'
+    | '/checkout'
+    | '/orders'
+    | '/shop'
+    | '/'
+    | '/order-confirmation/$id'
+    | '/products/$slug'
+  id:
+    | '__root__'
+    | '/_store'
+    | '/admin'
+    | '/_store/account'
+    | '/_store/cart'
+    | '/_store/checkout'
+    | '/_store/orders'
+    | '/_store/shop'
+    | '/_store/'
+    | '/_store/order-confirmation/$id'
+    | '/_store/products/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  StoreRoute: typeof StoreRouteWithChildren
+  AdminRoute: typeof AdminRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_store': {
+      id: '/_store'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof StoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_store/': {
+      id: '/_store/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof StoreIndexRouteImport
+      parentRoute: typeof StoreRoute
+    }
+    '/_store/account': {
+      id: '/_store/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof StoreAccountRouteImport
+      parentRoute: typeof StoreRoute
+    }
+    '/_store/cart': {
+      id: '/_store/cart'
+      path: '/cart'
+      fullPath: '/cart'
+      preLoaderRoute: typeof StoreCartRouteImport
+      parentRoute: typeof StoreRoute
+    }
+    '/_store/checkout': {
+      id: '/_store/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof StoreCheckoutRouteImport
+      parentRoute: typeof StoreRoute
+    }
+    '/_store/orders': {
+      id: '/_store/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof StoreOrdersRouteImport
+      parentRoute: typeof StoreRoute
+    }
+    '/_store/shop': {
+      id: '/_store/shop'
+      path: '/shop'
+      fullPath: '/shop'
+      preLoaderRoute: typeof StoreShopRouteImport
+      parentRoute: typeof StoreRoute
+    }
+    '/_store/order-confirmation/$id': {
+      id: '/_store/order-confirmation/$id'
+      path: '/order-confirmation/$id'
+      fullPath: '/order-confirmation/$id'
+      preLoaderRoute: typeof StoreOrderConfirmationIdRouteImport
+      parentRoute: typeof StoreRoute
+    }
+    '/_store/products/$slug': {
+      id: '/_store/products/$slug'
+      path: '/products/$slug'
+      fullPath: '/products/$slug'
+      preLoaderRoute: typeof StoreProductsSlugRouteImport
+      parentRoute: typeof StoreRoute
     }
   }
 }
 
+interface StoreRouteChildren {
+  StoreAccountRoute: typeof StoreAccountRoute
+  StoreCartRoute: typeof StoreCartRoute
+  StoreCheckoutRoute: typeof StoreCheckoutRoute
+  StoreOrdersRoute: typeof StoreOrdersRoute
+  StoreShopRoute: typeof StoreShopRoute
+  StoreIndexRoute: typeof StoreIndexRoute
+  StoreOrderConfirmationIdRoute: typeof StoreOrderConfirmationIdRoute
+  StoreProductsSlugRoute: typeof StoreProductsSlugRoute
+}
+
+const StoreRouteChildren: StoreRouteChildren = {
+  StoreAccountRoute: StoreAccountRoute,
+  StoreCartRoute: StoreCartRoute,
+  StoreCheckoutRoute: StoreCheckoutRoute,
+  StoreOrdersRoute: StoreOrdersRoute,
+  StoreShopRoute: StoreShopRoute,
+  StoreIndexRoute: StoreIndexRoute,
+  StoreOrderConfirmationIdRoute: StoreOrderConfirmationIdRoute,
+  StoreProductsSlugRoute: StoreProductsSlugRoute,
+}
+
+const StoreRouteWithChildren = StoreRoute._addFileChildren(StoreRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  StoreRoute: StoreRouteWithChildren,
+  AdminRoute: AdminRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

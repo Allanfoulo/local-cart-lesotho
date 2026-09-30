@@ -28,4 +28,4 @@ No child documentation areas are indexed yet.
 
 ## Current product design
 
-- [Staff, customer account, and checkout](superpowers/specs/2026-09-30-staff-customer-checkout-design.md) — approved page direction and client-side workflow scope, pending implementation.
+- [Staff, customer account, and checkout](superpowers/specs/2026-09-30-staff-customer-checkout-design.md) — approved page direction and client-side workflow scope, implemented in the current application.
