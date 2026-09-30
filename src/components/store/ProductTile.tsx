@@ -3,11 +3,11 @@ import { cn } from "@/lib/utils";
 const TILES = ["tile-leaf", "tile-wheat", "tile-sky", "tile-sun", "tile-clay", "tile-rose"];
 
 // On-brand product photography, keyed by product slug (file name).
-const JPG_IMAGES = import.meta.glob<string>("@/assets/products/*.jpg", {
+const JPG_IMAGES = import.meta.glob<string>("../../assets/products/*.jpg", {
   eager: true,
   import: "default",
 });
-const PNG_IMAGES = import.meta.glob<string>("@/assets/products/*.png", {
+const PNG_IMAGES = import.meta.glob<string>("../../assets/products/*.png", {
   eager: true,
   import: "default",
 });

@@ -1,4 +1,0 @@
-[install]
-saveTextLockfile = true
-# Require packages to be at least 24 hours old before installation.
-minimumReleaseAge = 86400

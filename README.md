@@ -32,18 +32,16 @@ public/         Static files served directly
 
 ## Run locally
 
-Requires Node.js and npm.
+Requires Node.js and pnpm. The project pins its package manager version in `package.json`.
 
 ```sh
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Useful commands:
 
 ```sh
-npm run build
-npm run typecheck
-npm run lint
-npm test
+pnpm build
+pnpm lint
 ```
