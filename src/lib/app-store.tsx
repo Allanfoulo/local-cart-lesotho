@@ -29,6 +29,7 @@ import type {
   Category,
   Customer,
   DeliveryAddress,
+  DeliveryLandmark,
   NotificationPreference,
   Order,
   OrderStatus,
@@ -51,8 +52,10 @@ interface AppState {
   cart: CartItem[];
   deliveryArea: string;
   savedAddresses: DeliveryAddress[];
+  deliveryLandmarks: DeliveryLandmark[];
+  deliveryRouteSequence: Record<string, string[]>;
   favourites: string[];
-  account: { name: string; phone: string; email?: string; signedIn: boolean };
+  account: { customerId: string; name: string; phone: string; email?: string; signedIn: boolean };
 }
 
 const initialState: AppState = {
@@ -75,8 +78,10 @@ const initialState: AppState = {
       instructions: "Blue gate, second house after the shop.",
     },
   ],
+  deliveryLandmarks: [],
+  deliveryRouteSequence: {},
   favourites: ["prd_1", "prd_24"],
-  account: { name: "Thabo Molefi", phone: "+266 5888 1234", email: "thabo@gmail.com", signedIn: true },
+  account: { customerId: seedCustomers[0]!.id, name: "Thabo Molefi", phone: "+266 5888 1234", email: "thabo@gmail.com", signedIn: true },
 };
 
 interface AppStoreValue extends AppState {
@@ -98,7 +103,9 @@ interface AppStoreValue extends AppState {
     discount?: number;
   }) => Order;
   updateOrderStatus: (orderId: string, status: OrderStatus, note?: string) => void;
+  setOrderPaymentStatus: (orderId: string, status: Payment["status"]) => void;
   assignDriver: (orderId: string, driver: string) => void;
+  setDeliveryRouteSequence: (driver: string, orderIds: string[]) => void;
   reorder: (orderId: string) => { added: number; unavailable: string[]; priceChanged: string[] };
   // admin
   upsertProduct: (product: Product) => void;
@@ -108,31 +115,68 @@ interface AppStoreValue extends AppState {
   upsertPromotion: (promotion: Promotion) => void;
   updateShop: (patch: Partial<Shop>) => void;
   toggleNotification: (id: string) => void;
+  updateAccount: (account: { name: string; phone: string; email?: string }) => void;
   saveAddress: (address: DeliveryAddress) => void;
   removeAddress: (id: string) => void;
+  saveDeliveryLandmark: (landmark: DeliveryLandmark) => void;
+  removeDeliveryLandmark: (id: string) => void;
 }
 
 const AppStoreContext = createContext<AppStoreValue | null>(null);
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setState((prev) => ({ ...prev, ...(JSON.parse(raw) as Partial<AppState>) }));
+      if (raw) {
+        const saved = JSON.parse(raw) as Partial<AppState>;
+        setState((prev) => {
+          const customers = saved.customers ?? prev.customers;
+          const account = {
+            ...prev.account,
+            ...saved.account,
+            customerId:
+              saved.account?.customerId ??
+              customers.find((customer) => customer.phone === saved.account?.phone)?.id ??
+              prev.account.customerId,
+          };
+          const orders = (saved.orders ?? prev.orders).map((order) => ({
+            ...order,
+            customer: {
+              ...order.customer,
+              customerId:
+                order.customer.customerId ??
+                customers.find((customer) => customer.phone === order.customer.phone)?.id,
+            },
+          }));
+          return {
+            ...prev,
+            ...saved,
+            account,
+            customers,
+            orders,
+            deliveryLandmarks: saved.deliveryLandmarks ?? prev.deliveryLandmarks,
+          };
+        });
+      }
     } catch {
       /* ignore corrupt storage */
+    } finally {
+      setHydrated(true);
     }
   }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
       /* storage full or unavailable */
     }
-  }, [state]);
+  }, [state, hydrated]);
 
   const patch = useCallback((updater: (prev: AppState) => AppState) => setState(updater), []);
 
@@ -214,7 +258,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         const order: Order = {
           id: number.toLowerCase().replace("#", ""),
           number,
-          customer,
+          customer: { ...customer, customerId: state.account.customerId },
           items: state.cart.map((item) => ({
             ...item,
             lineTotal: Number((item.unitPrice * item.quantity).toFixed(2)),
@@ -239,7 +283,24 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             { status: "received", at: now.toISOString() },
           ],
         };
-        patch((prev) => ({ ...prev, orders: [order, ...prev.orders], cart: [] }));
+        patch((prev) => ({
+          ...prev,
+          orders: [order, ...prev.orders],
+          cart: [],
+          customers: prev.customers.map((savedCustomer) =>
+            savedCustomer.id === prev.account.customerId
+              ? {
+                  ...savedCustomer,
+                  name: order.customer.name,
+                  phone: order.customer.phone,
+                  email: order.customer.email,
+                  orders: savedCustomer.orders + 1,
+                  lifetimeSpend: Number((savedCustomer.lifetimeSpend + order.total).toFixed(2)),
+                  lastOrder: order.createdAt,
+                }
+              : savedCustomer,
+          ),
+        }));
         return order;
       },
 
@@ -251,11 +312,30 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
               ? {
                   ...o,
                   status,
-                  payment:
-                    status === "delivered" ? { ...o.payment, status: "paid" } : o.payment,
                   timeline: [...o.timeline, { status, at: new Date().toISOString(), note }],
                 }
               : o,
+          ),
+        })),
+
+      setOrderPaymentStatus: (orderId, status) =>
+        patch((prev) => ({
+          ...prev,
+          orders: prev.orders.map((order) =>
+            order.id === orderId
+              ? {
+                  ...order,
+                  payment: { ...order.payment, status },
+                  timeline: [
+                    ...order.timeline,
+                    {
+                      status: "note",
+                      at: new Date().toISOString(),
+                      note: `Payment marked ${status} by staff.`,
+                    },
+                  ],
+                }
+              : order,
           ),
         })),
 
@@ -266,14 +346,23 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             o.id === orderId
               ? {
                   ...o,
-                  driver,
+                  driver: driver || undefined,
                   timeline: [
                     ...o.timeline,
-                    { status: "note", at: new Date().toISOString(), note: `Driver assigned: ${driver}` },
+                    { status: "note", at: new Date().toISOString(), note: driver ? `Driver assigned: ${driver}` : "Driver assignment cleared." },
                   ],
                 }
               : o,
           ),
+        })),
+
+      setDeliveryRouteSequence: (driver, orderIds) =>
+        patch((prev) => ({
+          ...prev,
+          deliveryRouteSequence: {
+            ...prev.deliveryRouteSequence,
+            [driver]: orderIds,
+          },
         })),
 
       reorder: (orderId) => {
@@ -363,19 +452,41 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           ),
         })),
 
+      updateAccount: (account) =>
+        patch((prev) => ({
+          ...prev,
+          account: { ...prev.account, ...account },
+          customers: prev.customers.map((customer) =>
+            customer.id === prev.account.customerId ? { ...customer, ...account } : customer,
+          ),
+        })),
+
       saveAddress: (address) =>
         patch((prev) => ({
           ...prev,
-          savedAddresses: [
-            ...prev.savedAddresses,
-            { ...address, id: address.id ?? `addr_${prev.savedAddresses.length + 1}` },
-          ],
+          savedAddresses: prev.savedAddresses.some((saved) => saved.id === address.id)
+            ? prev.savedAddresses.map((saved) => saved.id === address.id ? address : saved)
+            : [...prev.savedAddresses, { ...address, id: address.id ?? crypto.randomUUID() }],
         })),
 
       removeAddress: (id) =>
         patch((prev) => ({
           ...prev,
           savedAddresses: prev.savedAddresses.filter((a) => a.id !== id),
+        })),
+
+      saveDeliveryLandmark: (landmark) =>
+        patch((prev) => ({
+          ...prev,
+          deliveryLandmarks: prev.deliveryLandmarks.some((item) => item.id === landmark.id)
+            ? prev.deliveryLandmarks.map((item) => (item.id === landmark.id ? landmark : item))
+            : [...prev.deliveryLandmarks, landmark],
+        })),
+
+      removeDeliveryLandmark: (id) =>
+        patch((prev) => ({
+          ...prev,
+          deliveryLandmarks: prev.deliveryLandmarks.filter((item) => item.id !== id),
         })),
     };
   }, [state, patch]);

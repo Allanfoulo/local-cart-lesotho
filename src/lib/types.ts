@@ -79,8 +79,19 @@ export interface DeliveryAddress {
   address: string;
   landmark?: string;
   instructions?: string;
+  landmarkId?: string;
   lat?: number;
   lng?: number;
+}
+
+/** A locally verified, staff-curated place name that can help identify a delivery destination. */
+export interface DeliveryLandmark {
+  id: string;
+  name: string;
+  aliases: string[];
+  area: string;
+  lat: number;
+  lng: number;
 }
 
 export type PaymentMethod = "mobile_money" | "cash_on_delivery" | "card";
@@ -116,7 +127,7 @@ export interface OrderItem extends CartItem {
 export interface Order {
   id: string;
   number: string;
-  customer: { name: string; phone: string; email?: string };
+  customer: { customerId?: string; name: string; phone: string; email?: string };
   items: OrderItem[];
   address: DeliveryAddress;
   payment: Payment;

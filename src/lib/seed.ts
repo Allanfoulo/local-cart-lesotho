@@ -211,7 +211,7 @@ function buildOrder(
   return {
     id: number.toLowerCase(),
     number,
-    customer: { name: customer.name, phone: customer.phone, email: customer.email },
+    customer: { customerId: customer.id, name: customer.name, phone: customer.phone, email: customer.email },
     items: orderItems,
     address: {
       area,

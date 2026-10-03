@@ -6,6 +6,22 @@ import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
+  server: {
+    watch: {
+      ignored: [
+        "**/node_modules/**",
+        "**/.git/**",
+        "**/.output/**",
+        "**/.netlify/**",
+        "**/.worktrees/**",
+        "**/.wrangler/**",
+        "**/.tanstack/**",
+        "**/dist/**",
+        "**/artifacts/**",
+        "**/test-results/**",
+      ],
+    },
+  },
   plugins: [
     tanstackStart({ server: { entry: "server" } }),
     netlify(),
