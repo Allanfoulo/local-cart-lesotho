@@ -79,6 +79,7 @@ export interface DeliveryAddress {
   address: string;
   landmark?: string;
   instructions?: string;
+  landmarkId?: string;
   lat?: number;
   lng?: number;
 }

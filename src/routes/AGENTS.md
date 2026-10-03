@@ -17,7 +17,7 @@ Owns route definitions, route-level loaders, and composition of components into 
 
 ## Work Guidance
 
-Use `src/routes/README.md` and neighboring routes when adding a page. Customer account and order routes compose `CustomerAccount`; checkout composes `CheckoutWizard`; order confirmation uses `/order-confirmation/$id`. `/admin` composes the task-first `StaffWorkspace`.
+Use `src/routes/README.md` and neighboring routes when adding a page. Customer account and order routes compose `CustomerAccount`; checkout composes `CheckoutWizard`; order confirmation uses `/order-confirmation/$id`. `/admin` composes the task-first `StaffWorkspace`; `/demo-login` is a local role directory; `/staff/dispatch`, `/staff/catalogue`, and `/driver` compose role-focused local demo views without authentication.
 
 ## Verification
 

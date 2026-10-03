@@ -28,4 +28,7 @@ No child documentation areas are indexed yet.
 
 ## Current product design
 
+- [Role demo dashboards](superpowers/specs/2026-10-01-role-demo-dashboards-design.md) — approved role selector and phone-first dispatch and driver scope.
+
 - [Staff, customer account, and checkout](superpowers/specs/2026-09-30-staff-customer-checkout-design.md) — approved page direction and client-side workflow scope, implemented in the current application.
+- [User roles and dashboards](user-roles-and-dashboards.md) — five user groups, current demo coverage, and the recommended role-specific views and viewport priorities.

@@ -11,12 +11,16 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StoreRouteImport } from './routes/_store'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as DemoLoginRouteImport } from './routes/demo-login'
+import { Route as DriverRouteImport } from './routes/driver'
 import { Route as StoreIndexRouteImport } from './routes/_store.index'
 import { Route as StoreAccountRouteImport } from './routes/_store.account'
 import { Route as StoreCartRouteImport } from './routes/_store.cart'
 import { Route as StoreCheckoutRouteImport } from './routes/_store.checkout'
 import { Route as StoreOrdersRouteImport } from './routes/_store.orders'
 import { Route as StoreShopRouteImport } from './routes/_store.shop'
+import { Route as StaffCatalogueRouteImport } from './routes/staff.catalogue'
+import { Route as StaffDispatchRouteImport } from './routes/staff.dispatch'
 import { Route as StoreOrderConfirmationIdRouteImport } from './routes/_store.order-confirmation.$id'
 import { Route as StoreProductsSlugRouteImport } from './routes/_store.products.$slug'
 
@@ -27,6 +31,16 @@ const StoreRoute = StoreRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoLoginRoute = DemoLoginRouteImport.update({
+  id: '/demo-login',
+  path: '/demo-login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DriverRoute = DriverRouteImport.update({
+  id: '/driver',
+  path: '/driver',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StoreIndexRoute = StoreIndexRouteImport.update({
@@ -59,6 +73,16 @@ const StoreShopRoute = StoreShopRouteImport.update({
   path: '/shop',
   getParentRoute: () => StoreRoute,
 } as any)
+const StaffCatalogueRoute = StaffCatalogueRouteImport.update({
+  id: '/staff/catalogue',
+  path: '/staff/catalogue',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StaffDispatchRoute = StaffDispatchRouteImport.update({
+  id: '/staff/dispatch',
+  path: '/staff/dispatch',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StoreOrderConfirmationIdRoute =
   StoreOrderConfirmationIdRouteImport.update({
     id: '/order-confirmation/$id',
@@ -74,21 +98,29 @@ const StoreProductsSlugRoute = StoreProductsSlugRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof StoreIndexRoute
   '/admin': typeof AdminRoute
+  '/demo-login': typeof DemoLoginRoute
+  '/driver': typeof DriverRoute
   '/account': typeof StoreAccountRoute
   '/cart': typeof StoreCartRoute
   '/checkout': typeof StoreCheckoutRoute
   '/orders': typeof StoreOrdersRoute
   '/shop': typeof StoreShopRoute
+  '/staff/catalogue': typeof StaffCatalogueRoute
+  '/staff/dispatch': typeof StaffDispatchRoute
   '/order-confirmation/$id': typeof StoreOrderConfirmationIdRoute
   '/products/$slug': typeof StoreProductsSlugRoute
 }
 export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
+  '/demo-login': typeof DemoLoginRoute
+  '/driver': typeof DriverRoute
   '/account': typeof StoreAccountRoute
   '/cart': typeof StoreCartRoute
   '/checkout': typeof StoreCheckoutRoute
   '/orders': typeof StoreOrdersRoute
   '/shop': typeof StoreShopRoute
+  '/staff/catalogue': typeof StaffCatalogueRoute
+  '/staff/dispatch': typeof StaffDispatchRoute
   '/': typeof StoreIndexRoute
   '/order-confirmation/$id': typeof StoreOrderConfirmationIdRoute
   '/products/$slug': typeof StoreProductsSlugRoute
@@ -97,11 +129,15 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_store': typeof StoreRouteWithChildren
   '/admin': typeof AdminRoute
+  '/demo-login': typeof DemoLoginRoute
+  '/driver': typeof DriverRoute
   '/_store/account': typeof StoreAccountRoute
   '/_store/cart': typeof StoreCartRoute
   '/_store/checkout': typeof StoreCheckoutRoute
   '/_store/orders': typeof StoreOrdersRoute
   '/_store/shop': typeof StoreShopRoute
+  '/staff/catalogue': typeof StaffCatalogueRoute
+  '/staff/dispatch': typeof StaffDispatchRoute
   '/_store/': typeof StoreIndexRoute
   '/_store/order-confirmation/$id': typeof StoreOrderConfirmationIdRoute
   '/_store/products/$slug': typeof StoreProductsSlugRoute
@@ -111,21 +147,29 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/demo-login'
+    | '/driver'
     | '/account'
     | '/cart'
     | '/checkout'
     | '/orders'
     | '/shop'
+    | '/staff/catalogue'
+    | '/staff/dispatch'
     | '/order-confirmation/$id'
     | '/products/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/admin'
+    | '/demo-login'
+    | '/driver'
     | '/account'
     | '/cart'
     | '/checkout'
     | '/orders'
     | '/shop'
+    | '/staff/catalogue'
+    | '/staff/dispatch'
     | '/'
     | '/order-confirmation/$id'
     | '/products/$slug'
@@ -133,11 +177,15 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_store'
     | '/admin'
+    | '/demo-login'
+    | '/driver'
     | '/_store/account'
     | '/_store/cart'
     | '/_store/checkout'
     | '/_store/orders'
     | '/_store/shop'
+    | '/staff/catalogue'
+    | '/staff/dispatch'
     | '/_store/'
     | '/_store/order-confirmation/$id'
     | '/_store/products/$slug'
@@ -146,6 +194,10 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   StoreRoute: typeof StoreRouteWithChildren
   AdminRoute: typeof AdminRoute
+  DemoLoginRoute: typeof DemoLoginRoute
+  DriverRoute: typeof DriverRoute
+  StaffCatalogueRoute: typeof StaffCatalogueRoute
+  StaffDispatchRoute: typeof StaffDispatchRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -162,6 +214,20 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo-login': {
+      id: '/demo-login'
+      path: '/demo-login'
+      fullPath: '/demo-login'
+      preLoaderRoute: typeof DemoLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/driver': {
+      id: '/driver'
+      path: '/driver'
+      fullPath: '/driver'
+      preLoaderRoute: typeof DriverRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_store/': {
@@ -205,6 +271,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/shop'
       preLoaderRoute: typeof StoreShopRouteImport
       parentRoute: typeof StoreRoute
+    }
+    '/staff/catalogue': {
+      id: '/staff/catalogue'
+      path: '/staff/catalogue'
+      fullPath: '/staff/catalogue'
+      preLoaderRoute: typeof StaffCatalogueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/staff/dispatch': {
+      id: '/staff/dispatch'
+      path: '/staff/dispatch'
+      fullPath: '/staff/dispatch'
+      preLoaderRoute: typeof StaffDispatchRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_store/order-confirmation/$id': {
       id: '/_store/order-confirmation/$id'
@@ -250,6 +330,10 @@ const StoreRouteWithChildren = StoreRoute._addFileChildren(StoreRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   StoreRoute: StoreRouteWithChildren,
   AdminRoute: AdminRoute,
+  DemoLoginRoute: DemoLoginRoute,
+  DriverRoute: DriverRoute,
+  StaffCatalogueRoute: StaffCatalogueRoute,
+  StaffDispatchRoute: StaffDispatchRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

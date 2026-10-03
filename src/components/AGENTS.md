@@ -22,8 +22,13 @@ Check sibling components for established app-store and formatting patterns befor
 
 Use the source-level checks listed in `src/AGENTS.md` when requested or needed.
 
+Driver dashboard contracts are documented in [driver/AGENTS.md](driver/AGENTS.md).
+
 ## Child DOX Index
 
+- [driver/AGENTS.md](driver/AGENTS.md) - phone-first assigned delivery workflow.
+
 - [admin/AGENTS.md](admin/AGENTS.md) — staff catalogue, order, and fulfilment workflows.
+- [delivery/AGENTS.md](delivery/AGENTS.md) — customer delivery location capture and place selection.
 - [maps/AGENTS.md](maps/AGENTS.md) — shared delivery-map rendering.
 - [shop/AGENTS.md](shop/AGENTS.md) — storefront, checkout, account, and tracking.

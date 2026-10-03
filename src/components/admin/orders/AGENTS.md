@@ -6,7 +6,7 @@ Own staff order management and delivery dispatch views.
 
 ## Ownership
 
-`DispatchBoard.tsx` contains the staff dispatch map and persisted manual stop sequence. The parent `StaffWorkspace.tsx` owns the order queue. Shared records and persistence are owned by `src/lib/`.
+`DispatchOrdersQueue.tsx` contains phone-first order preparation, status, assignment, and payment checks at `/staff/dispatch`. `DispatchBoard.tsx` contains that route’s driver stop assignment, approximate map, and persisted manual sequence; it is also reused in `/admin`. Shared records and persistence are owned by `src/lib/`.
 
 ## Local Contracts
 

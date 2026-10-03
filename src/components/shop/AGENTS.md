@@ -13,6 +13,7 @@ Shop components present customer workflows and use the shared app store for cart
 - Treat familiar place names and landmarks as valid delivery location details; street numbers are not required. Preserve former business names and customer directions as entered.
 - Explain delivery fees, served areas, and location precision clearly before order placement.
 - Treat a customer-confirmed location as optional. Keep exact coordinates out of external map and routing requests until an approved provider and data transfer are in scope.
+- Let customers search staff-curated delivery place names and aliases locally; selecting one carries its verified area and coordinates into the order without a geocoding request.
 - Order tracking reflects the persisted order status; do not imply live driver location unless that feature exists.
 - Use approximate area points for map display; exact customer coordinates must not be sent through public basemap requests.
 

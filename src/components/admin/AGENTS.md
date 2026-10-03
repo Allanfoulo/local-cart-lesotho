@@ -18,11 +18,11 @@ Admin pages read and update shared state through the app store. Driver-facing wo
 
 ## Work Guidance
 
-`StaffWorkspace.tsx` is the task-first staff entry point. `CatalogueManagement.tsx` owns product and stock edits; `OffersManagement.tsx` owns category and promotion edits. Keep these workflows, order actions, shop settings, and verified delivery places connected to AppStore. Reuse the shared map component for dispatch visualization; keep manual ordering available independently of road-routing integrations.
+`StaffWorkspace.tsx` is the task-first staff entry point and owns overview, order, customer, and local report sections. `CatalogueManagement.tsx` owns product and stock edits; `OffersManagement.tsx` owns category and promotion edits. Keep these workflows, order actions, shop settings, and verified delivery places connected to AppStore. Reuse the shared map component for dispatch visualization; keep manual ordering available independently of road-routing integrations.
 
 ## Verification
 
-Check order status and assignment flows against `src/lib/types.ts` and app-store actions.
+Check order status and assignment flows, customer-to-order matching, report date windows, and payment totals against `src/lib/types.ts` and app-store records.
 
 ## Child DOX Index
 
