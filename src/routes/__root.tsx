@@ -75,17 +75,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Mabote Fresh — Groceries delivered in Maseru" },
+      { title: "REETAPELE — Groceries delivered in Maseru" },
       {
         name: "description",
-        content: "Order fresh produce and groceries from Mabote Fresh, delivered to your door in Maseru.",
+        content: "Order groceries from local distributors and get them delivered in Maseru.",
       },
       { property: "og:type", content: "website" },
+      { name: "theme-color", content: "#1F6B45" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      {
+        rel: "icon",
+        href: "/brand/reetapele/pwa/reetapele-192.svg",
+        type: "image/svg+xml",
+      },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

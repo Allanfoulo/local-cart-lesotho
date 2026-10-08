@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">REETAPELE 3D study: isometric delivery crate</title>
+  <defs>
+    <linearGradient id="isoBlue" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#769DFA"/><stop offset="1" stop-color="#3456A4"/></linearGradient>
+    <linearGradient id="isoGreen" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#69C67C"/><stop offset="1" stop-color="#1F6B45"/></linearGradient>
+    <linearGradient id="isoOrange" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#FFD18A"/><stop offset="1" stop-color="#EB7729"/></linearGradient>
+  </defs>
+  <rect x="7" y="9" width="114" height="114" rx="32" fill="#163526"/>
+  <rect x="5" y="4" width="114" height="114" rx="32" fill="url(#isoGreen)" stroke="#B4E8AF" stroke-width="2"/>
+  <circle cx="37" cy="91" r="16" fill="#145338" stroke="#F5F0DF" stroke-width="4"/>
+  <circle cx="88" cy="91" r="16" fill="#145338" stroke="#F5F0DF" stroke-width="4"/>
+  <path d="m37 91 20-31 22 31H37l20-31h22m0 0 9 31" fill="none" stroke="#174630" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m37 88 20-31 22 31H37l20-31h22m0 0 9 31" fill="none" stroke="#FBF4E4" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m72 41 23 7-19 11-23-7z" fill="#FFE0AA"/>
+  <path d="m53 52 23 7v23l-23-8z" fill="#D9591D"/>
+  <path d="m76 59 19-11v23L76 82z" fill="url(#isoOrange)"/>
+  <path d="M49 31Q64 7 79 31L74 39H54Z" fill="#131A17" stroke="#7A8A80" stroke-width="1.5"/>
+  <path d="M45 40h38" stroke="#FFE7C0" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="88" cy="91" r="3" fill="#4775D1"/>
+</svg>

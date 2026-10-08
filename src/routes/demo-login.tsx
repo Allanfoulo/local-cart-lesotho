@@ -42,8 +42,8 @@ const roleViews = [
 export const Route = createFileRoute("/demo-login")({
   head: () => ({
     meta: [
-      { title: "Mabote Fresh | Choose a demo view" },
-      { name: "description", content: "Choose a Mabote Fresh role view to preview the demo." },
+      { title: "REETAPELE | Choose a demo view" },
+      { name: "description", content: "Choose a REETAPELE role view to preview the demo." },
     ],
   }),
   component: DemoRoleSelector,
@@ -55,7 +55,7 @@ function DemoRoleSelector() {
       <div className="mx-auto max-w-5xl">
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <Link to="/" className="text-sm font-bold tracking-wide text-primary">
-            MABOTE FRESH
+            REETAPELE
           </Link>
           <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-primary">
             Return to shop

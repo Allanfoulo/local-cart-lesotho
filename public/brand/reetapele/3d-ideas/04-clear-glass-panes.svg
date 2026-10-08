@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">REETAPELE translucent glass study: clear panes</title>
+  <defs>
+    <linearGradient id="clearBase" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#2F985E"/><stop offset=".55" stop-color="#145839"/><stop offset="1" stop-color="#0F3C42"/></linearGradient>
+    <linearGradient id="clearPane" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#F7FFFF" stop-opacity=".78"/><stop offset=".45" stop-color="#BDEBFF" stop-opacity=".12"/><stop offset="1" stop-color="#E4FFF5" stop-opacity=".3"/></linearGradient>
+    <linearGradient id="clearFrame" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#FFF"/><stop offset="1" stop-color="#B6E8D9"/></linearGradient>
+  </defs>
+  <rect x="6" y="7" width="116" height="116" rx="32" fill="#0E352C"/>
+  <rect x="4" y="4" width="116" height="116" rx="32" fill="url(#clearBase)" stroke="#DBFFEF" stroke-opacity=".7" stroke-width="2"/>
+  <path d="M17 26q1-14 18-14h56q23 0 23 22v9q-26-9-49-3-25 7-48 3z" fill="url(#clearPane)" stroke="#FFF" stroke-opacity=".68" stroke-width="1.5"/>
+  <path d="M13 65q24-14 48-4 30 12 54-4v27q-25 17-52 4-27-12-50 3z" fill="#8AC7FF" fill-opacity=".22" stroke="#E8FAFF" stroke-opacity=".68" stroke-width="1.5"/>
+  <circle cx="39" cy="87" r="18" fill="#D9FFF2" fill-opacity=".13" stroke="url(#clearFrame)" stroke-width="4.5"/>
+  <circle cx="89" cy="87" r="18" fill="#D9FFF2" fill-opacity=".13" stroke="url(#clearFrame)" stroke-width="4.5"/>
+  <path d="m39 87 21-31 20 31H39l21-31h20m0 0 9 31" fill="none" stroke="#0D4737" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m39 84 21-31 20 31H39l21-31h20m0 0 9 31" fill="none" stroke="url(#clearFrame)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M49 35Q64 9 79 35L74 43H54Z" fill="#151A18" stroke="#FFF" stroke-opacity=".8" stroke-width="1.5"/>
+  <path d="M45 44h38" stroke="#F28C28" stroke-width="5" stroke-linecap="round"/>
+</svg>

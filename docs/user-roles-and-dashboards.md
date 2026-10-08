@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Mabote Fresh serves five distinct user groups. Each group should have a view that fits its work, while shared store data keeps customers, orders, stock, and delivery status consistent.
+REETAPELE serves five distinct user groups. Each group should have a view that fits its work, while shared store data keeps customers, orders, stock, and delivery status consistent.
 
 This document separates what the current role-based demo previews from access controls planned for a fuller system.
 

@@ -9,12 +9,12 @@ import { formatMShort } from "@/lib/format";
 export const Route = createFileRoute("/_store/")({
   head: () => ({
     meta: [
-      { title: "Mabote Fresh — Fresh groceries delivered in Maseru" },
+      { title: "REETAPELE — Fresh groceries delivered in Maseru" },
       {
         name: "description",
         content: "Shop fresh produce, bread, drinks and household essentials from your local grocer. Pay with EcoCash, M-Pesa or cash.",
       },
-      { property: "og:title", content: "Mabote Fresh — Fresh groceries delivered in Maseru" },
+      { property: "og:title", content: "REETAPELE — Fresh groceries delivered in Maseru" },
       {
         property: "og:description",
         content: "Your local grocer, online. Same-day delivery across Maseru.",

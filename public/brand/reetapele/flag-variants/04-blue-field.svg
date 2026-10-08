@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">REETAPELE flag palette 4: blue field and cream bicycle</title>
+  <rect x="3" y="3" width="122" height="122" rx="30" fill="#3B5F9D" />
+  <path d="M3 78h122v20H3z" fill="#1F6B45" />
+  <circle cx="40" cy="87" r="18" fill="none" stroke="#FAF8F3" stroke-width="4.5" />
+  <circle cx="88" cy="87" r="18" fill="none" stroke="#FAF8F3" stroke-width="4.5" />
+  <path d="m40 87 21-34 19 34H40l21-34h19m0 0 8 34" fill="none" stroke="#FAF8F3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M49 39Q64 13 79 39L75 46H53Z" fill="#171A18" />
+  <path d="M46 47h36" stroke="#FAF8F3" stroke-width="4.5" stroke-linecap="round" />
+</svg>

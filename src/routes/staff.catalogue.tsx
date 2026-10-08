@@ -7,7 +7,7 @@ import { OffersManagement } from "@/components/admin/OffersManagement";
 export const Route = createFileRoute("/staff/catalogue")({
   head: () => ({
     meta: [
-      { title: "Mabote Fresh | Stock and promotions" },
+      { title: "REETAPELE | Stock and promotions" },
       { name: "description", content: "Manage products, stock, categories, and promotions." },
     ],
   }),
@@ -28,7 +28,7 @@ function CatalogueWorkspace() {
         </Link>
         <header className="mb-5">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            Mabote Fresh · Catalogue
+            REETAPELE · Catalogue
           </p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
             Stock and promotions

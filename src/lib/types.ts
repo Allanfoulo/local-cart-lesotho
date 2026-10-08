@@ -1,4 +1,4 @@
-// Domain models for the Mabote Fresh storefront.
+// Domain models for the REETAPELE storefront.
 // These are intentionally backend-agnostic so they can be swapped for
 // Convex documents later (each entity has a stable string `id`).
 

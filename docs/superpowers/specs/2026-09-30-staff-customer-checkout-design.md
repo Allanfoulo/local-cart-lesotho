@@ -4,9 +4,9 @@
 
 ## Context
 
-Mabote Fresh is a mobile-first grocery storefront built with TanStack Start, React, and TypeScript. The current customer cart and product pages use a shared `AppStore` backed by browser `localStorage`. The `/admin`, `/account`, `/checkout`, and `/orders` routes are placeholders. The store already has seeded products, categories, customers, orders, promotions, delivery areas, payment options, and client-side actions for most staff and shopping operations.
+REETAPELE is a mobile-first grocery storefront built with TanStack Start, React, and TypeScript. The current customer cart and product pages use a shared `AppStore` backed by browser `localStorage`. The `/admin`, `/account`, `/checkout`, and `/orders` routes are placeholders. The store already has seeded products, categories, customers, orders, promotions, delivery areas, payment options, and client-side actions for most staff and shopping operations.
 
-This work completes the staff workspace, customer account, order history, and checkout while keeping the prototype's current client-side architecture and Mabote Fresh visual language.
+This work completes the staff workspace, customer account, order history, and checkout while keeping the prototype's current client-side architecture and REETAPELE visual language.
 
 ## Goals
 
@@ -76,7 +76,7 @@ All demo data remains in browser storage. The interface should make demo behavio
 
 ## Visual direction
 
-Preserve the established Mabote Fresh system: warm cream page surfaces, white cards, dark readable type, grocery green primary actions, restrained orange promotion accents, rounded corners, generous spacing, and strong product photography. Staff screens may use denser tables on wide screens, but must remain usable on mobile. Customer and checkout screens remain mobile-first and keep prices, delivery cost, and order status easy to scan.
+Preserve the established REETAPELE system: warm cream page surfaces, white cards, dark readable type, grocery green primary actions, restrained orange promotion accents, rounded corners, generous spacing, and strong product photography. Staff screens may use denser tables on wide screens, but must remain usable on mobile. Customer and checkout screens remain mobile-first and keep prices, delivery cost, and order status easy to scan.
 
 ## Failure and empty states
 

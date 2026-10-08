@@ -39,7 +39,23 @@ import type {
   Shop,
 } from "./types";
 
-const STORAGE_KEY = "mabote-fresh-state-v1";
+const STORAGE_KEY = "reetapele-state-v1";
+const LEGACY_STORAGE_KEY = ["mabote", "fresh", "state", "v1"].join("-");
+
+function renameSavedBrand(value: unknown): unknown {
+  if (typeof value === "string") {
+    return value.replace(/mabote([\s_-]+)fresh/gi, (match) =>
+      /\s/.test(match) ? "REETAPELE" : "reetapele",
+    );
+  }
+  if (Array.isArray(value)) return value.map(renameSavedBrand);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [key, renameSavedBrand(nestedValue)]),
+    );
+  }
+  return value;
+}
 
 interface AppState {
   shop: Shop;
@@ -130,9 +146,19 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const currentRaw = window.localStorage.getItem(STORAGE_KEY);
+      const legacyRaw = currentRaw === null ? window.localStorage.getItem(LEGACY_STORAGE_KEY) : null;
+      const raw = currentRaw ?? legacyRaw;
       if (raw) {
-        const saved = JSON.parse(raw) as Partial<AppState>;
+        const saved = renameSavedBrand(JSON.parse(raw)) as Partial<AppState>;
+        if (legacyRaw !== null) {
+          try {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+            window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+          } catch {
+            /* Keep loading the saved state if storage is temporarily unavailable. */
+          }
+        }
         setState((prev) => {
           const customers = saved.customers ?? prev.customers;
           const account = {

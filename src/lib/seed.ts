@@ -9,8 +9,8 @@ import type {
 } from "./types";
 
 export const seedShop: Shop = {
-  id: "shop_mabote_fresh",
-  name: "Mabote Fresh",
+  id: "shop_reetapele",
+  name: "REETAPELE",
   tagline: "Your Local Grocer • Maseru",
   phone: "+266 5888 1234",
   whatsapp: "+266 5888 1234",
@@ -60,7 +60,7 @@ function p(
     id: `prd_${n}`,
     slug,
     name,
-    description: `${name} from Mabote Fresh. Locally sourced where possible and checked by our team before it reaches your door.`,
+    description: `${name} from REETAPELE. Locally sourced where possible and checked by our team before it reaches your door.`,
     categoryId,
     price,
     unit,

@@ -26,10 +26,10 @@ export const Route = createFileRoute("/_store/shop")({
   validateSearch: (s) => searchSchema.parse(s),
   head: () => ({
     meta: [
-      { title: "Shop all groceries — Mabote Fresh" },
+      { title: "Shop all groceries — REETAPELE" },
       { name: "description", content: "Browse fresh produce, groceries, drinks, snacks and household items." },
-      { property: "og:title", content: "Shop all groceries — Mabote Fresh" },
-      { property: "og:description", content: "Browse every product at Mabote Fresh with live prices and stock." },
+      { property: "og:title", content: "Shop all groceries — REETAPELE" },
+      { property: "og:description", content: "Browse every product at REETAPELE with live prices and stock." },
     ],
   }),
   component: ShopPage,

@@ -81,7 +81,7 @@ export function StaffWorkspace() {
     <main className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-9">
       <header className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-primary">MABOTE FRESH · STAFF</p>
+          <p className="text-sm font-semibold text-primary">REETAPELE · STAFF</p>
           <h1 className="mt-1 text-3xl font-bold tracking-tight">{heading}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Your local store workspace. Changes are saved in this browser.

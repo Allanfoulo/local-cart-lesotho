@@ -52,7 +52,7 @@ export function DriverDashboard() {
         <header className="mb-5 flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-              Mabote Fresh · Driver
+              REETAPELE · Driver
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">Today’s deliveries</h1>
           </div>

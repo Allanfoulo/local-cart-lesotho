@@ -7,7 +7,7 @@ import { DispatchBoard } from "@/components/admin/orders/DispatchBoard";
 export const Route = createFileRoute("/staff/dispatch")({
   head: () => ({
     meta: [
-      { title: "Mabote Fresh | Dispatch" },
+      { title: "REETAPELE | Dispatch" },
       { name: "description", content: "Organize assigned delivery stops for the dispatch team." },
     ],
   }),
@@ -28,7 +28,7 @@ function DispatchWorkspace() {
         </Link>
         <header className="mb-5">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            Mabote Fresh · Dispatch
+            REETAPELE · Dispatch
           </p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
             Plan the next stops

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">REETAPELE 3D study: enamel medallion</title>
+  <defs>
+    <linearGradient id="medallion" x1="0" y1="0" x2="0.9" y2="1"><stop stop-color="#73A0F1"/><stop offset=".5" stop-color="#3155A2"/><stop offset="1" stop-color="#18346E"/></linearGradient>
+    <linearGradient id="medalBike" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#B5F2C1"/><stop offset="1" stop-color="#4B9E66"/></linearGradient>
+    <linearGradient id="medalGold" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#FFE0A0"/><stop offset="1" stop-color="#E87725"/></linearGradient>
+  </defs>
+  <rect x="7" y="9" width="114" height="114" rx="33" fill="#16294D"/>
+  <rect x="5" y="4" width="114" height="114" rx="33" fill="url(#medallion)" stroke="#C4D9FF" stroke-width="2"/>
+  <circle cx="62" cy="68" r="47" fill="#20417E" stroke="#F3CF86" stroke-width="3"/>
+  <circle cx="62" cy="68" r="42" fill="none" stroke="#D7E5FF" stroke-opacity=".62" stroke-width="1.5"/>
+  <circle cx="39" cy="87" r="16" fill="#193B74" stroke="#EAF3FF" stroke-width="4"/>
+  <circle cx="88" cy="87" r="16" fill="#193B74" stroke="#EAF3FF" stroke-width="4"/>
+  <path d="m39 87 20-30 20 30H39l20-30h20m0 0 9 30" fill="none" stroke="#174830" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m39 84 20-30 20 30H39l20-30h20m0 0 9 30" fill="none" stroke="url(#medalBike)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M49 34Q64 9 79 34L74 42H54Z" fill="#121817" stroke="#75847D" stroke-width="1.5"/>
+  <path d="M45 43h38" stroke="url(#medalGold)" stroke-width="5.5" stroke-linecap="round"/>
+  <path d="M18 29q12-14 31-15" fill="none" stroke="#FFF" stroke-opacity=".78" stroke-width="3" stroke-linecap="round"/>
+</svg>

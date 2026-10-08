@@ -10,10 +10,10 @@ import { formatM, unitLabel } from "@/lib/format";
 export const Route = createFileRoute("/_store/cart")({
   head: () => ({
     meta: [
-      { title: "Your cart — Mabote Fresh" },
+      { title: "Your cart — REETAPELE" },
       { name: "description", content: "Review the groceries in your cart before checkout." },
-      { property: "og:title", content: "Your cart — Mabote Fresh" },
-      { property: "og:description", content: "Review your Mabote Fresh cart." },
+      { property: "og:title", content: "Your cart — REETAPELE" },
+      { property: "og:description", content: "Review your REETAPELE cart." },
     ],
   }),
   component: CartPage,

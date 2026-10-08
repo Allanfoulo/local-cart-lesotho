@@ -4,7 +4,7 @@ import { StaffWorkspace } from "@/components/admin/StaffWorkspace";
 export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
-      { title: "Mabote Fresh | Staff workspace" },
+      { title: "REETAPELE | Staff workspace" },
       {
         name: "description",
         content:
