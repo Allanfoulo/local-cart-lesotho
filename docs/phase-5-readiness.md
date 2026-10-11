@@ -19,7 +19,7 @@ Reviewed 2026-10-11. This is a development readiness review; it does not deploy 
 - Credentials previously exposed in verbose development CLI output have not been rotated. No Resend or Convex account dashboard is connected here, so replacement and revocation could not be completed. Rotate those values before relying on the affected credentials.
 - Monitoring, backup/recovery, and support procedures have not been demonstrated or documented as operational. Confirm these with the deployment and operations owners before launch.
 - A staff acceptance walkthrough has not been run with real store, manager, order staff, dispatcher, and driver accounts.
-- A PR can be pushed for review. A Netlify Deploy Preview depends on a Netlify site linked to this GitHub repository and its preview settings; that integration remains unverified.
+- The GitHub PR integration generated a Netlify Deploy Preview at `https://deploy-preview-2--local-cart-lesotho.netlify.app`; its Netlify status check passed. An unauthenticated HTTP request redirects to Netlify Edge Access login, so the signed-in app journey still needs to be checked by someone with preview access. The Netlify CLI session in this workspace belongs to a different account/site, so preview-specific environment variables could not be inspected here.
 - Payment-provider integration remains deferred as previously agreed. Production payment methods and related customer messaging must reflect the supported methods until a provider is integrated.
 
 ## Local quality gate
