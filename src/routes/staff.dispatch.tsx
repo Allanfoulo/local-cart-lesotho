@@ -3,6 +3,9 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { DispatchOrdersQueue } from "@/components/admin/orders/DispatchOrdersQueue";
 import { DispatchBoard } from "@/components/admin/orders/DispatchBoard";
+import { RequireMembership } from "@/components/auth/RequireMembership";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
 export const Route = createFileRoute("/staff/dispatch")({
   head: () => ({
@@ -16,7 +19,11 @@ export const Route = createFileRoute("/staff/dispatch")({
 
 function DispatchWorkspace() {
   const [section, setSection] = useState<"orders" | "stops">("orders");
-  return (
+  const [storeId, setStoreId] = useState<string>("");
+  const access = useQuery(api.memberships.currentAccess, {});
+  const canDispatch = Boolean(access?.isSuperadmin || access?.memberships.some((membership) => ["store_owner", "store_manager", "dispatcher"].includes(membership.role)));
+  const selectedStoreId = access?.stores.find((store) => store.id === storeId)?.id ?? access?.stores[0]?.id;
+  return <RequireMembership roles={["store_owner", "store_manager", "dispatcher", "order_staff"]}><>
     <main className="min-h-screen bg-background px-3 py-4 sm:px-5 sm:py-7">
       <div className="mx-auto max-w-5xl">
         <Link
@@ -37,8 +44,8 @@ function DispatchWorkspace() {
             Prepare orders, assign drivers, and arrange delivery stops from your phone.
           </p>
         </header>
-        <nav className="mb-5 grid grid-cols-2 gap-2" aria-label="Dispatch sections">
-          {(["orders", "stops"] as const).map((key) => (
+        <nav className={`mb-5 grid gap-2 ${canDispatch ? "grid-cols-2" : "grid-cols-1"}`} aria-label="Dispatch sections">
+          {(canDispatch ? ["orders", "stops"] as const : ["orders"] as const).map((key) => (
             <button
               key={key}
               type="button"
@@ -50,11 +57,12 @@ function DispatchWorkspace() {
             </button>
           ))}
         </nav>
-        {section === "orders" ? <DispatchOrdersQueue /> : <DispatchBoard />}
+        {access?.stores && access.stores.length > 1 && <label className="mb-5 block max-w-sm text-sm font-medium">Store<select aria-label="Dispatch store" className="mt-1 h-11 w-full rounded-xl border bg-card px-3" value={selectedStoreId} onChange={(event) => setStoreId(event.target.value)}>{access.stores.map((store) => <option key={store.id} value={store.id}>{store.name}{store.enabled ? "" : " (paused)"}</option>)}</select></label>}
+        {section === "orders" || !canDispatch ? <DispatchOrdersQueue storeId={selectedStoreId} /> : <DispatchBoard storeId={selectedStoreId} />}
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Demo dispatch view · Changes are saved in this browser.
+          Order, assignment, and stop updates sync with the store workspace.
         </p>
       </div>
     </main>
-  );
+  </></RequireMembership>;
 }

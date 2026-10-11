@@ -1,22 +1,16 @@
-import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { useAppStore, ORDER_STATUS_FLOW, ORDER_STATUS_LABEL, PAYMENT_LABEL } from "@/lib/app-store";
+import { useAppStore, ORDER_STATUS_LABEL, PAYMENT_LABEL } from "@/lib/app-store";
 import { formatDate, formatM } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
+import { canAssignPreparation, nextOrderStatus, type OrderWorkflowRole } from "@/domain/orders/workflow";
 
-const demoDrivers = ["Moshe Thabane", "Kabelo M.", "Lineo P."];
-
-export function DispatchOrdersQueue() {
+export function DispatchOrdersQueue({ storeId }: { storeId?: string } = {}) {
   const store = useAppStore();
-  const drivers = useMemo(
-    () =>
-      [
-        ...new Set([...demoDrivers, ...store.orders.map((order) => order.driver).filter(Boolean)]),
-      ] as string[],
-    [store.orders],
-  );
+  const access = useQuery(api.memberships.currentAccess, {});
   const openOrders = store.orders
-    .filter((order) => !["delivered", "cancelled"].includes(order.status))
+    .filter((order) => (!storeId || order.storeId === storeId) && !["delivered", "rejected", "cancelled"].includes(order.status))
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   return (
@@ -32,10 +26,16 @@ export function DispatchOrdersQueue() {
       {openOrders.length ? (
         <ol className="space-y-3">
           {openOrders.map((order) => {
-            const statusIndex = ORDER_STATUS_FLOW.indexOf(order.status);
-            const nextStatus =
-              ORDER_STATUS_FLOW[Math.min(statusIndex + 1, ORDER_STATUS_FLOW.length - 1)] ??
-              order.status;
+            const storeRoles = access?.memberships.filter((membership) => membership.storeId === order.storeId) ?? [];
+            const canDispatch = Boolean(access?.isSuperadmin || storeRoles.some((membership) => ["store_owner", "store_manager", "dispatcher"].includes(membership.role)));
+            const canManagePayment = Boolean(access?.isSuperadmin || storeRoles.some((membership) => ["store_owner", "store_manager"].includes(membership.role)));
+            const role: OrderWorkflowRole = access?.isSuperadmin ? "store_manager" :
+              storeRoles.some((membership) => membership.role === "store_owner") ? "store_owner" :
+              storeRoles.some((membership) => membership.role === "store_manager") ? "store_manager" :
+              storeRoles.some((membership) => membership.role === "dispatcher") ? "dispatcher" : "order_staff";
+            const nextStatus = nextOrderStatus(role, order.status);
+            const preparationStaff = store.preparationStaff.filter((member) => member.storeIds.includes(order.storeId ?? ""));
+            const drivers = store.drivers.filter((driver) => driver.storeIds.includes(order.storeId ?? ""));
             return (
               <li key={order.id}>
                 <article className="rounded-2xl border bg-card p-4">
@@ -61,6 +61,7 @@ export function DispatchOrdersQueue() {
                       {` · ${PAYMENT_LABEL[order.payment.method]} (${order.payment.status})`}
                     </span>
                   </p>
+                  {order.assignedStaff && <p className="mt-1 text-sm text-muted-foreground">Preparation: {order.assignedStaff}</p>}
                   <details className="mt-3">
                     <summary className="min-h-10 cursor-pointer py-2 text-sm font-semibold text-primary">
                       Customer and delivery details
@@ -81,13 +82,23 @@ export function DispatchOrdersQueue() {
                       )}
                     </div>
                   </details>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className={`mt-3 grid gap-2 ${canDispatch && canManagePayment ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}>
+                    {canManagePayment && preparationStaff.length > 0 && !["ready", "out_for_delivery", "delivered", "rejected", "cancelled"].includes(order.status) && (
+                      <label className="text-sm font-medium">
+                        Preparation staff
+                        <select aria-label={`Assign order preparation for ${order.number}`} className="mt-1 h-11 w-full rounded-xl border bg-background px-3" value={order.assignedStaffUserId || "Not assigned"} onChange={(event) => store.assignPreparationStaff(order.id, event.target.value === "Not assigned" ? "" : event.target.value)}>
+                          <option value="Not assigned">Not assigned</option>
+                          {preparationStaff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
+                        </select>
+                      </label>
+                    )}
+                    {canDispatch && (
                     <label className="text-sm font-medium">
                       Driver
                       <select
                         aria-label={`Assign driver for ${order.number}`}
                         className="mt-1 h-11 w-full rounded-xl border bg-background px-3"
-                        value={order.driver || "Not assigned"}
+                        value={order.driverUserId || "Not assigned"}
                         onChange={(event) =>
                           store.assignDriver(
                             order.id,
@@ -96,11 +107,13 @@ export function DispatchOrdersQueue() {
                         }
                       >
                         <option>Not assigned</option>
-                        {drivers.map((name) => (
-                          <option key={name}>{name}</option>
+                        {drivers.map((driver) => (
+                          <option key={driver.id} value={driver.id}>{driver.name}</option>
                         ))}
                       </select>
                     </label>
+                    )}
+                    {canManagePayment && (
                     <label className="text-sm font-medium">
                       Payment status
                       <select
@@ -119,6 +132,7 @@ export function DispatchOrdersQueue() {
                         <option value="unpaid">Unpaid</option>
                       </select>
                     </label>
+                    )}
                   </div>
                   <Button
                     className="mt-3 h-12 w-full text-base"
@@ -132,6 +146,9 @@ export function DispatchOrdersQueue() {
                       ? "Assign a driver to continue"
                       : `Mark ${ORDER_STATUS_LABEL[nextStatus]}`}
                   </Button>
+                  {canManagePayment && order.status === "received" && <Button variant="outline" className="mt-2 w-full" onClick={() => store.updateOrderStatus(order.id, "rejected")}>Reject order</Button>}
+                  {canManagePayment && !["rejected", "cancelled"].includes(order.status) && <Button variant="outline" className="mt-2 w-full" onClick={() => store.updateOrderStatus(order.id, "cancelled")}>Cancel order</Button>}
+                  {!canDispatch && order.status === "ready" && <p className="mt-2 text-center text-sm text-muted-foreground">Ready for dispatch.</p>}
                 </article>
               </li>
             );

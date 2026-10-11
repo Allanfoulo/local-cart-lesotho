@@ -6,7 +6,7 @@ Own staff-facing catalogue, settings, order, and fulfilment interfaces.
 
 ## Ownership
 
-Admin pages read and update shared state through the app store. Driver-facing workflows live under `components/driver/`.
+Admin pages render shared workspace state through `AppStore`, whose operational queries and mutations are backed by Convex. Driver-facing workflows live under `components/driver/`.
 
 ## Local Contracts
 
@@ -18,7 +18,7 @@ Admin pages read and update shared state through the app store. Driver-facing wo
 
 ## Work Guidance
 
-`StaffWorkspace.tsx` is the task-first staff entry point and owns overview, order, customer, and local report sections. `CatalogueManagement.tsx` owns product and stock edits; `OffersManagement.tsx` owns category and promotion edits. Keep these workflows, order actions, shop settings, and verified delivery places connected to AppStore. Reuse the shared map component for dispatch visualization; keep manual ordering available independently of road-routing integrations.
+`StaffWorkspace.tsx` is the task-first staff entry point and owns overview, order, customer, and report sections. `CatalogueManagement.tsx` owns product and stock edits; `OffersManagement.tsx` owns category and promotion edits. Keep these workflows, order actions, shop settings, and verified delivery places connected to Convex through AppStore actions and reactive workspace queries. Reuse the shared map component for dispatch visualization; keep manual ordering available independently of road-routing integrations.
 
 ## Verification
 

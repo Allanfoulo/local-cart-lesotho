@@ -7,7 +7,7 @@ is `src/routes/__root.tsx`.
 
 ## Conventions
 
-Role demo destinations are `/demo-login`, `/admin`, `/staff/dispatch`, `/staff/catalogue`, and `/driver`. They are preview routes, not authenticated sessions.
+Team workspace destinations are `/demo-login`, `/admin`, `/staff/dispatch`, `/staff/catalogue`, and `/driver`. The directory is public; admin, dispatch, catalogue, and driver routes require authenticated, active Convex memberships.
 
 | File                     | URL                                                     |
 | ------------------------ | ------------------------------------------------------- |

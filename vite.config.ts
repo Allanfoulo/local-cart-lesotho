@@ -5,7 +5,7 @@ import viteReact from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   server: {
     watch: {
       ignored: [
@@ -24,9 +24,9 @@ export default defineConfig({
   },
   plugins: [
     tanstackStart({ server: { entry: "server" } }),
-    netlify(),
+    ...(command === "build" ? [netlify()] : []),
     viteReact(),
     tailwindcss(),
     tsconfigPaths(),
   ],
-});
+}));

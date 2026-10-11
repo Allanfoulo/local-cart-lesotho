@@ -1,9 +1,10 @@
 import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAppStore } from "@/lib/app-store";
+import { ManagementStoreSelector } from "@/components/admin/ManagementStoreSelector";
 import type { DeliveryLandmark } from "@/lib/types";
 
 const blankForm = {
@@ -15,12 +16,21 @@ const blankForm = {
 };
 
 export function DeliveryPlacesManager() {
-  const { shop, deliveryLandmarks, saveDeliveryLandmark, removeDeliveryLandmark } = useAppStore();
+  const { managementStore: shop, managementStoreId, deliveryLandmarks: allDeliveryLandmarks, saveDeliveryLandmark, removeDeliveryLandmark } = useAppStore();
+  const deliveryLandmarks = allDeliveryLandmarks.filter((landmark) => landmark.storeId === managementStoreId);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(blankForm);
   const [coordinatesConfirmed, setCoordinatesConfirmed] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    setEditingId(null);
+    setForm(blankForm);
+    setCoordinatesConfirmed(false);
+    setError("");
+    setNotice("");
+  }, [managementStoreId]);
 
   const editLandmark = (landmark: DeliveryLandmark) => {
     setEditingId(landmark.id);
@@ -81,11 +91,11 @@ export function DeliveryPlacesManager() {
       return;
     }
     const id = editingId ?? crypto.randomUUID();
-    saveDeliveryLandmark({ id, name: form.name.trim(), aliases, area: form.area, lat, lng });
+    saveDeliveryLandmark({ id, storeId: managementStoreId, name: form.name.trim(), aliases, area: form.area, lat, lng });
     setForm(blankForm);
     setEditingId(null);
     setCoordinatesConfirmed(false);
-    setNotice("Verified delivery place saved in this browser.");
+    setNotice(`Verified delivery place saved for ${shop.name}.`);
   };
 
   const cancelEdit = () => {
@@ -104,6 +114,7 @@ export function DeliveryPlacesManager() {
           Keep familiar place names and former business names connected to pins the team has checked.
           Enter coordinates only after verifying the place on the ground or with a trusted source.
         </p>
+        <ManagementStoreSelector />
       </header>
 
       <section className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6">
@@ -112,7 +123,7 @@ export function DeliveryPlacesManager() {
           {editingId ? "Edit delivery place" : "Add a delivery place"}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Add alternate spellings or old shop names separated by commas. These pins stay in the local app.
+          Add alternate spellings or old shop names for {shop.name}. These verified locations are shared with authorized staff.
         </p>
         <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={save}>
           <label className="space-y-1.5 text-sm font-medium sm:col-span-2">
@@ -241,8 +252,7 @@ export function DeliveryPlacesManager() {
       </section>
 
       <p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">
-        This prototype has no staff sign-in and stores the directory in this browser only. It is not yet
-        shared across staff devices, and landmark coordinates are not sent to external map or routing services.
+        Delivery place names and verified coordinates are stored in Convex and scoped to {shop.name}. Customer delivery coordinates remain private and are not sent to map or routing services.
       </p>
     </div>
   );

@@ -3,6 +3,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { CatalogueManagement } from "@/components/admin/CatalogueManagement";
 import { OffersManagement } from "@/components/admin/OffersManagement";
+import { RequireMembership } from "@/components/auth/RequireMembership";
 
 export const Route = createFileRoute("/staff/catalogue")({
   head: () => ({
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/staff/catalogue")({
 
 function CatalogueWorkspace() {
   const [section, setSection] = useState<"products" | "offers">("products");
-  return (
+  return <RequireMembership roles={["store_owner", "store_manager", "catalogue_staff"]}><>
     <main className="min-h-screen bg-background px-4 py-5 sm:px-6 sm:py-8">
       <div className="mx-auto max-w-6xl">
         <Link
@@ -49,9 +50,9 @@ function CatalogueWorkspace() {
         </nav>
         {section === "products" ? <CatalogueManagement /> : <OffersManagement />}
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Demo catalogue view · Changes are saved in this browser.
+          Product, stock, and promotion updates sync with the store marketplace.
         </p>
       </div>
     </main>
-  );
+  </></RequireMembership>;
 }

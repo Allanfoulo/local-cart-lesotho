@@ -16,7 +16,7 @@ Own shared domain types, client state, seeded data, and framework-independent he
 - Keep customer coordinate values out of external map requests; map helpers expose only neighborhood centers.
 - Store staff-curated delivery place aliases with verified coordinates in the app store; never infer pins from a name or transmit these coordinates externally without approval.
 - Copy a selected landmark's canonical name and coordinates onto the delivery address so later catalog edits do not move an existing order's destination.
-- Keep order ownership tied to the stable demo customer ID, persist new app state through hydration, and require staff payment verification rather than inferring payment from delivery status.
+- Keep authenticated order ownership tied to the Convex user identity and allow guest orders to retain their customer contact snapshot. Keep cart and harmless presentation preferences local; operational state belongs in Convex. Require staff payment verification rather than inferring payment from delivery status.
 
 ## Work Guidance
 

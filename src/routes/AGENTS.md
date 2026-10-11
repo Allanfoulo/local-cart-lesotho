@@ -12,12 +12,12 @@ Owns route definitions, route-level loaders, and composition of components into 
 
 - Follow the existing filename-to-path convention and route typing patterns.
 - Treat `routeTree.gen.ts` as generated output; do not hand-edit it.
-- Keep authorization expectations consistent with the current prototype and do not imply backend-enforced access where none exists.
-- The `/admin` screen is a browser-local prototype with no staff authentication; do not describe its edits as synchronized across devices.
+- Protect staff and driver routes with `RequireMembership`; Convex functions remain the authority for every read and write.
+- Do not imply that a role directory or client-side role choice grants access.
 
 ## Work Guidance
 
-Use `src/routes/README.md` and neighboring routes when adding a page. Customer account and order routes compose `CustomerAccount`; checkout composes `CheckoutWizard`; order confirmation uses `/order-confirmation/$id`. `/admin` composes the task-first `StaffWorkspace`; `/demo-login` is a local role directory; `/staff/dispatch`, `/staff/catalogue`, and `/driver` compose role-focused local demo views without authentication.
+Use `src/routes/README.md` and neighboring routes when adding a page. Customer account and order routes compose `CustomerAccount`; checkout composes `CheckoutWizard`; order confirmation uses `/order-confirmation/$id`. `/admin` composes the task-first `StaffWorkspace`; `/demo-login` is a public directory linking to protected workspaces; `/staff/dispatch` supports order preparation staff and dispatch roles, `/staff/catalogue` supports catalogue roles, and `/driver` requires an active driver membership. Convex remains the authorization boundary.
 
 ## Verification
 

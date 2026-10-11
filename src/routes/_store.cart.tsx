@@ -4,7 +4,7 @@ import { Trash2 } from "lucide-react";
 import { ProductTile } from "@/components/store/ProductTile";
 import { QuantityStepper } from "@/components/store/QuantityStepper";
 import { Button } from "@/components/ui/button";
-import { useAppStore } from "@/lib/app-store";
+import { groupCartByStore, useAppStore } from "@/lib/app-store";
 import { formatM, unitLabel } from "@/lib/format";
 
 export const Route = createFileRoute("/_store/cart")({
@@ -20,9 +20,12 @@ export const Route = createFileRoute("/_store/cart")({
 });
 
 function CartPage() {
-  const { cart, cartSubtotal, shop, setCartQuantity, removeFromCart } = useAppStore();
-  const total = cartSubtotal + shop.deliveryFee;
-  const belowMin = cartSubtotal < shop.minimumOrder;
+  const { cart, cartSubtotal, stores, shop, setCartQuantity, removeFromCart } = useAppStore();
+  const groups = groupCartByStore(cart, stores.length ? stores : [shop]);
+  const delivery = groups.reduce((sum, group) => sum + group.store.deliveryFee, 0);
+  const total = cartSubtotal + delivery;
+  const belowMinimum = groups.filter((group) => group.subtotal < group.store.minimumOrder);
+  const belowMin = belowMinimum.length > 0;
 
   if (!cart.length) {
     return (
@@ -41,7 +44,13 @@ function CartPage() {
     <div className="grid gap-6 md:grid-cols-[1fr_340px]">
       <div className="space-y-3">
         <h1 className="text-2xl font-extrabold tracking-tight">Your cart</h1>
-        {cart.map((item) => (
+        {groups.map((group) => (
+          <section key={group.store.id} className="space-y-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="font-bold">{group.store.name}</h2>
+              <span className="text-xs text-muted-foreground">{group.items.length} items</span>
+            </div>
+            {group.items.map((item) => (
           <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
             <ProductTile emoji={item.emoji} name={item.name} size="sm" />
             <div className="min-w-0 flex-1">
@@ -69,19 +78,27 @@ function CartPage() {
               <Trash2 className="size-4 text-muted-foreground" />
             </Button>
           </div>
+            ))}
+          </section>
         ))}
       </div>
       <aside className="h-fit space-y-3 rounded-2xl border border-border bg-card p-5 md:sticky md:top-32">
         <h2 className="font-bold">Order summary</h2>
         <Row label="Subtotal" value={formatM(cartSubtotal)} />
-        <Row label="Delivery" value={formatM(shop.deliveryFee)} />
+        {groups.map((group) => (
+          <Row key={group.store.id} label={`${group.store.name} delivery`} value={formatM(group.store.deliveryFee)} />
+        ))}
         <div className="border-t border-border pt-3">
           <Row label="Total" value={formatM(total)} bold />
         </div>
         {belowMin ? (
-          <p className="rounded-xl bg-warning/15 p-3 text-sm">
-            Minimum order is {formatM(shop.minimumOrder)}. Add {formatM(shop.minimumOrder - cartSubtotal)} more.
-          </p>
+          <div className="space-y-2 rounded-xl bg-warning/15 p-3 text-sm">
+            {belowMinimum.map((group) => (
+              <p key={group.store.id}>
+                {group.store.name} requires {formatM(group.store.minimumOrder)} minimum. Add {formatM(group.store.minimumOrder - group.subtotal)} more.
+              </p>
+            ))}
+          </div>
         ) : null}
         <Button asChild size="lg" className="w-full rounded-full" disabled={belowMin}>
           {belowMin ? <span>Checkout</span> : <Link to="/checkout">Checkout</Link>}

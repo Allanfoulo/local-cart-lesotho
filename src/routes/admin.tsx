@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { StaffWorkspace } from "@/components/admin/StaffWorkspace";
+import { RequireMembership } from "@/components/auth/RequireMembership";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -12,5 +13,16 @@ export const Route = createFileRoute("/admin")({
       },
     ],
   }),
-  component: StaffWorkspace,
+  component: AdminRoute,
 });
+
+function AdminRoute() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  return pathname === "/admin/sign-in" ? (
+    <Outlet />
+  ) : (
+    <RequireMembership roles={["store_owner", "store_manager"]}>
+      <StaffWorkspace />
+    </RequireMembership>
+  );
+}

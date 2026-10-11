@@ -20,6 +20,7 @@ const searchSchema = z.object({
   category: z.string().optional(),
   sort: z.enum(["popular", "price_asc", "price_desc", "newest"]).optional(),
   instock: z.boolean().optional(),
+  store: z.string().optional(),
 });
 
 export const Route = createFileRoute("/_store/shop")({
@@ -38,13 +39,17 @@ export const Route = createFileRoute("/_store/shop")({
 function ShopPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/shop" });
-  const { categories, products } = useAppStore();
-  const active = categories.find((c) => c.slug === search.category);
+  const { categories, products, stores } = useAppStore();
+  const activeStore = stores.find((store) => store.slug === search.store);
+  const scopedCategories = categories.filter((category) => !activeStore || category.storeId === activeStore.id);
+  const scopedProducts = products.filter((product) => !activeStore || product.storeId === activeStore.id);
+  const active = scopedCategories.find((c) => c.slug === search.category);
+  const categoryIds = scopedCategories.filter((category) => category.slug === search.category).map((category) => category.id);
   const list = filterProducts(
-    active?.slug === "specials" ? products.filter((p) => p.promoPrice) : products,
+    active?.slug === "specials" ? scopedProducts.filter((p) => p.promoPrice) : scopedProducts,
     {
       search: search.q,
-      categoryId: active && active.slug !== "specials" ? active.id : undefined,
+      categoryId: active && active.slug !== "specials" ? categoryIds : undefined,
       sort: search.sort,
       inStockOnly: search.instock,
     },
@@ -55,7 +60,23 @@ function ShopPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-extrabold tracking-tight">{active ? active.name : "All products"}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-extrabold tracking-tight">
+          {activeStore ? `${activeStore.name}${active ? ` · ${active.name}` : ""}` : active ? active.name : "All products"}
+        </h1>
+        <Select
+          value={activeStore?.slug ?? "all"}
+          onValueChange={(value) => set({ store: value === "all" ? undefined : value, category: undefined })}
+        >
+          <SelectTrigger className="h-9 w-52 rounded-full bg-card">
+            <SelectValue placeholder="All stores" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All stores</SelectItem>
+            {stores.map((store) => <SelectItem key={store.id} value={store.slug}>{store.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -67,7 +88,7 @@ function ShopPage() {
       </div>
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
         <Chip active={!active} to={undefined}>All</Chip>
-        {categories
+        {scopedCategories
           .filter((c) => c.enabled)
           .sort((a, b) => a.order - b.order)
           .map((c) => (

@@ -1,4 +1,4 @@
-import { Link, createFileRoute, notFound } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft, Heart } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -12,12 +12,13 @@ import { effectivePrice, stockStatus, useAppStore } from "@/lib/app-store";
 import { formatM, formatMShort, unitLabel } from "@/lib/format";
 import { seedProducts } from "@/lib/seed";
 import { cn } from "@/lib/utils";
+import { z } from "zod";
 
 export const Route = createFileRoute("/_store/products/$slug")({
+  validateSearch: (search) => z.object({ store: z.string().optional() }).parse(search),
   loader: ({ params }) => {
     const p = seedProducts.find((x) => x.slug === params.slug);
-    if (!p) throw notFound();
-    return { name: p.name, description: p.description };
+    return { name: p?.name ?? "Product", description: p?.description ?? "Product details from local stores." };
   },
   head: ({ loaderData }) => {
     const title = loaderData ? `${loaderData.name} — REETAPELE` : "Product — REETAPELE";
@@ -36,8 +37,10 @@ export const Route = createFileRoute("/_store/products/$slug")({
 
 function ProductPage() {
   const { slug } = Route.useParams();
-  const { products, addToCart, favourites, toggleFavourite } = useAppStore();
-  const product = products.find((p) => p.slug === slug);
+  const search = Route.useSearch();
+  const { products, stores, addToCart, favourites, toggleFavourite } = useAppStore();
+  const selectedStore = stores.find((store) => store.slug === search.store);
+  const product = products.find((p) => p.slug === slug && (!selectedStore || p.storeId === selectedStore.id));
   const [qty, setQty] = useState(1);
 
   if (!product) return <p>Product not found.</p>;
@@ -45,12 +48,12 @@ function ProductPage() {
   const price = effectivePrice(product);
   const fav = favourites.includes(product.id);
   const related = products
-    .filter((p) => p.categoryId === product.categoryId && p.id !== product.id)
+    .filter((p) => p.storeId === product.storeId && p.categoryId === product.categoryId && p.id !== product.id)
     .slice(0, 4);
 
   return (
     <div className="space-y-8">
-      <Link to="/shop" className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+      <Link to="/shop" search={{ store: selectedStore?.slug }} className="inline-flex items-center gap-1 text-sm text-muted-foreground">
         <ArrowLeft className="size-4" /> Back to shop
       </Link>
       <div className="grid gap-6 md:grid-cols-2">
@@ -76,6 +79,7 @@ function ProductPage() {
             ) : null}
           </div>
           <StockBadge status={status} />
+          <p className="text-sm font-medium text-muted-foreground">Sold by {product.storeName}</p>
           <p className="text-muted-foreground">{product.description}</p>
 
           {product.soldByWeight && product.weightOptions ? (

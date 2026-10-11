@@ -42,8 +42,8 @@ const roleViews = [
 export const Route = createFileRoute("/demo-login")({
   head: () => ({
     meta: [
-      { title: "REETAPELE | Choose a demo view" },
-      { name: "description", content: "Choose a REETAPELE role view to preview the demo." },
+      { title: "REETAPELE | Team workspaces" },
+      { name: "description", content: "Open a REETAPELE team workspace with your invited account." },
     ],
   }),
   component: DemoRoleSelector,
@@ -57,23 +57,28 @@ function DemoRoleSelector() {
           <Link to="/" className="text-sm font-bold tracking-wide text-primary">
             REETAPELE
           </Link>
-          <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-primary">
-            Return to shop
-          </Link>
+          <nav className="flex items-center gap-4">
+            <Link to="/admin/sign-in" className="text-sm font-medium text-primary hover:underline">
+              Super admin sign in
+            </Link>
+            <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-primary">
+              Return to shop
+            </Link>
+          </nav>
         </header>
         <section className="max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">
-            Demo workspace
+            Team workspaces
           </p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
-            Choose a view to preview
+            Choose a workspace
           </h1>
           <p className="mt-3 max-w-xl text-muted-foreground">
-            Each option opens a role-focused part of the prototype. Your changes stay in this
-            browser.
+            Open the workspace for your role. Staff and drivers need an active invitation for the
+            relevant store.
           </p>
           <p className="mt-5 rounded-xl border bg-card px-4 py-3 text-sm text-muted-foreground">
-            Demo role selection only. This does not sign in or restrict access to any page.
+            This directory does not grant access. Sign in with the account and role assigned to you.
           </p>
         </section>
         <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -19,7 +19,7 @@ Give every REETAPELE user a clear, role-appropriate workspace, with Convex as th
 - **Customer profile:** business contact details and order aggregates, optionally linked to an authenticated user. Guest orders remain supported.
 - **Membership:** authorization grant, independent from authentication identity. Platform membership is separate from store-scoped membership.
 - **Platform role:** `superadmin`.
-- **Store roles:** `store_owner`, `store_manager`, `catalogue_staff`, `dispatcher`, and `driver`; each is scoped to exactly one store.
+- **Store roles:** `store_owner`, `store_manager`, `order_staff`, `catalogue_staff`, `dispatcher`, and `driver`; each is scoped to exactly one store. `order_staff` can process order preparation through ready status but cannot assign drivers or change payment state.
 - **Membership status:** `active` or `suspended`.
 - **Order:** authoritative current state for one store within a possibly multi-store checkout.
 - **Domain event:** immutable, versioned fact recording a meaningful committed state change.
@@ -28,7 +28,7 @@ Give every REETAPELE user a clear, role-appropriate workspace, with Convex as th
 
 - Customer signup, sign-in, email verification, password recovery, optional authenticated account, and guest checkout.
 - One-time initial super-admin setup; subsequent admin management of users, store records, and platform access.
-- Store-owner invitation and acceptance for store-scoped staff roles; suspension and revocation of memberships.
+- Store-owner and manager invitation and acceptance for store-scoped staff roles; suspension and revocation of memberships. Owners can invite managers; owners and managers can invite order, catalogue, dispatch, and driver staff.
 - Store-scoped catalogue, inventory, offer, and setting updates.
 - Authorized order status changes, driver assignment, and delivery updates.
 - Driver view of assigned work and authorized status updates.

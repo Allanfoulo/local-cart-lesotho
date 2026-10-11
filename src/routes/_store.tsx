@@ -3,6 +3,7 @@ import { Home, LayoutGrid, MapPin, Package, Search, ShoppingCart, User } from "l
 import { useState } from "react";
 
 import { Logo } from "@/components/store/Logo";
+import { ConvexMarketplaceSync } from "@/components/shop/ConvexMarketplaceSync";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -24,6 +25,7 @@ function StoreLayout() {
 
   return (
     <div className="min-h-screen pb-20 md:pb-0">
+      {import.meta.env["VITE_CONVEX_URL"] ? <ConvexMarketplaceSync /> : null}
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
           <Link to="/">

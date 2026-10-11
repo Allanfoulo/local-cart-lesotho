@@ -6,9 +6,10 @@ import { useAppStore } from "@/lib/app-store";
 import { deliveryAreasForMap, orderMapPoint } from "@/lib/delivery-map";
 import { formatM } from "@/lib/format";
 import type { Order } from "@/lib/types";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 
 const eligible = new Set(["ready", "out_for_delivery"]);
-const demoDrivers = ["Moshe Thabane", "Kabelo M.", "Lineo P."];
 
 function sortByRoute(orders: Order[], savedIds: string[]) {
   return [...orders].sort((a, b) => {
@@ -21,18 +22,26 @@ function sortByRoute(orders: Order[], savedIds: string[]) {
   });
 }
 
-export function DispatchBoard() {
+export function DispatchBoard({ storeId }: { storeId?: string } = {}) {
   const store = useAppStore();
+  const access = useQuery(api.memberships.currentAccess, {});
   const [mapOpen, setMapOpen] = useState(false);
-  const assignedDrivers = store.orders.map((order) => order.driver).filter(Boolean) as string[];
-  const drivers = [...new Set([...demoDrivers, ...assignedDrivers])];
+  const canDispatchStore = (storeId: string | undefined) => Boolean(access?.isSuperadmin || (storeId && access?.memberships.some((membership) => membership.storeId === storeId && ["store_owner", "store_manager", "dispatcher"].includes(membership.role))));
+  const dispatchOrders = store.orders.filter((order) => storeId ? order.storeId === storeId && canDispatchStore(order.storeId) : canDispatchStore(order.storeId));
+  const dispatchDrivers = store.drivers.filter((driver) => storeId
+    ? driver.storeIds.includes(storeId)
+    : access?.isSuperadmin || driver.storeIds.some((authorizedStoreId) => canDispatchStore(authorizedStoreId)));
+  const assignedDrivers = dispatchOrders.flatMap((order) => order.driverUserId ? [order.driverUserId] : []);
+  const drivers = [...new Set([...dispatchDrivers.map((driver) => driver.id), ...assignedDrivers])];
   const [driver, setDriver] = useState(drivers[0]!);
   const activeDriver = drivers.includes(driver) ? driver : drivers[0]!;
-  const assigned = store.orders.filter(
-    (order) => order.driver === activeDriver && eligible.has(order.status),
+  const activeDriverName = dispatchDrivers.find((item) => item.id === activeDriver)?.name ?? dispatchOrders.find((order) => order.driverUserId === activeDriver)?.driver ?? "Driver";
+  const assigned = dispatchOrders.filter(
+    (order) => order.driverUserId === activeDriver && eligible.has(order.status),
   );
-  const unassigned = store.orders.filter((order) => !order.driver && order.status === "ready");
-  const savedIds = store.deliveryRouteSequence[activeDriver] ?? [];
+  const unassigned = dispatchOrders.filter((order) => !order.driver && order.status === "ready");
+  const routeStoreId = storeId ?? dispatchOrders.find((order) => order.driverUserId === activeDriver)?.storeId;
+  const savedIds = store.deliveryRouteSequence[`${routeStoreId}::${activeDriver}`] ?? [];
   const ordered = sortByRoute(assigned, savedIds);
   const points = ordered.flatMap((order) => {
     const point = orderMapPoint(order);
@@ -70,8 +79,10 @@ export function DispatchBoard() {
             value={activeDriver}
             onChange={(event) => setDriver(event.target.value)}
           >
-            {drivers.map((name) => (
-              <option key={name}>{name}</option>
+            {drivers.map((driverId) => (
+              <option key={driverId} value={driverId}>
+                {dispatchDrivers.find((item) => item.id === driverId)?.name ?? dispatchOrders.find((order) => order.driverUserId === driverId)?.driver ?? "Driver"}
+              </option>
             ))}
           </select>
         </label>
@@ -81,7 +92,7 @@ export function DispatchBoard() {
         <div className="mb-3 flex items-end justify-between gap-3">
           <div>
             <h3 id="stop-order-title" className="font-semibold">
-              {activeDriver}’s stops
+              {activeDriverName}’s stops
             </h3>
             <p className="text-sm text-muted-foreground">{ordered.length} assigned and ready</p>
           </div>
@@ -166,7 +177,7 @@ export function DispatchBoard() {
                   onClick={() => store.assignDriver(order.id, activeDriver)}
                 >
                   <UserPlus className="size-4" />
-                  Assign to {activeDriver.split(" ")[0]}
+                  Assign to {activeDriverName.split(" ")[0]}
                 </Button>
               </li>
             ))}

@@ -1,9 +1,8 @@
 /**
  * Single integration boundary for all application data.
  *
- * Today everything lives in memory (seeded) and is persisted to localStorage.
- * To move to Convex later, replace the bodies of the actions below with
- * mutations and the selectors with queries — component code does not change.
+ * Convex is the operational source of truth. Only the cart and delivery-area
+ * display preference are persisted locally.
  */
 import {
   createContext,
@@ -14,12 +13,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useMutation } from "convex/react";
+import { toast } from "sonner";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
 import {
   seedCategories,
-  seedCustomers,
   seedNotificationPreferences,
-  seedOrders,
   seedProducts,
   seedPromotions,
   seedShop,
@@ -39,8 +40,8 @@ import type {
   Shop,
 } from "./types";
 
-const STORAGE_KEY = "reetapele-state-v1";
-const LEGACY_STORAGE_KEY = ["mabote", "fresh", "state", "v1"].join("-");
+const STORAGE_KEY = "reetapele-shopper-v2";
+const PREVIOUS_STORAGE_KEYS = ["reetapele-state-v1", ["mabote", "fresh", "state", "v1"].join("-")];
 
 function renameSavedBrand(value: unknown): unknown {
   if (typeof value === "string") {
@@ -59,10 +60,18 @@ function renameSavedBrand(value: unknown): unknown {
 
 interface AppState {
   shop: Shop;
+  stores: Shop[];
+  managementStores: Shop[];
+  managementCategories: Category[];
+  managementProducts: Product[];
+  managementPromotions: Promotion[];
+  managementStoreId: string;
   categories: Category[];
   products: Product[];
   orders: Order[];
   customers: Customer[];
+  drivers: Array<{ id: string; name: string; storeIds: string[] }>;
+  preparationStaff: Array<{ id: string; name: string; storeIds: string[] }>;
   promotions: Promotion[];
   notificationPreferences: NotificationPreference[];
   cart: CartItem[];
@@ -76,31 +85,43 @@ interface AppState {
 
 const initialState: AppState = {
   shop: seedShop,
+  stores: [seedShop],
+  managementStores: [seedShop],
+  managementCategories: seedCategories,
+  managementProducts: seedProducts,
+  managementPromotions: seedPromotions,
+  managementStoreId: seedShop.id,
   categories: seedCategories,
   products: seedProducts,
-  orders: seedOrders,
-  customers: seedCustomers,
+  orders: [],
+  customers: [],
+  drivers: [],
+  preparationStaff: [],
   promotions: seedPromotions,
   notificationPreferences: seedNotificationPreferences,
   cart: [],
   deliveryArea: seedShop.defaultDeliveryArea,
-  savedAddresses: [
-    {
-      id: "addr_1",
-      label: "Home",
-      area: "Ha-Mabote, Maseru",
-      address: "1234 Ha-Mabote",
-      landmark: "Opposite Mabote Primary School",
-      instructions: "Blue gate, second house after the shop.",
-    },
-  ],
+  savedAddresses: [],
   deliveryLandmarks: [],
   deliveryRouteSequence: {},
-  favourites: ["prd_1", "prd_24"],
-  account: { customerId: seedCustomers[0]!.id, name: "Thabo Molefi", phone: "+266 5888 1234", email: "thabo@gmail.com", signedIn: true },
+  favourites: [],
+  account: { customerId: "", name: "", phone: "", email: undefined, signedIn: false },
 };
 
 interface AppStoreValue extends AppState {
+  managementStore: Shop;
+  setManagementStore: (storeId: string) => void;
+  createPlatformStore: (args: {
+    name: string;
+    slug: string;
+    tagline: string;
+    phone: string;
+    whatsapp: string;
+    address: string;
+    openingHours: string;
+    deliveryArea: string;
+  }) => Promise<Id<"stores">>;
+  setPlatformStoreEnabled: (storeId: Id<"stores">, enabled: boolean) => Promise<null>;
   // cart
   addToCart: (product: Product, quantity?: number) => void;
   setCartQuantity: (productId: string, quantity: number) => void;
@@ -108,6 +129,49 @@ interface AppStoreValue extends AppState {
   clearCart: () => void;
   cartCount: number;
   cartSubtotal: number;
+  replaceMarketplaceCatalog: (catalog: {
+    stores: Shop[];
+    categories: Category[];
+    products: Product[];
+    promotions?: Promotion[];
+  }) => void;
+  replaceManagementWorkspace: (catalog: {
+    stores: Shop[];
+    categories: Category[];
+    products: Product[];
+    promotions: Promotion[];
+  }) => void;
+  replaceStaffWorkspace: (workspace: { orders: Order[]; customers: Customer[]; drivers: AppState["drivers"]; preparationStaff?: AppState["preparationStaff"]; deliveryRouteSequence?: Record<string, string[]> }) => void;
+  replaceDeliveryLandmarks: (places: DeliveryLandmark[]) => void;
+  replaceCustomerAccount: (account: { customerId: string; name: string; phone: string; email: string; addresses: DeliveryAddress[]; favourites: string[]; preferences: Array<{ key: string; enabled: boolean }> }) => void;
+  recordConvexCheckout: (input: {
+    checkoutId: string;
+    customer: { name: string; phone: string; email?: string };
+    address: DeliveryAddress;
+    payment: Payment;
+    orders: Array<{
+      orderId: string;
+      orderNumber: string;
+      storeId: string;
+      storeName: string;
+      subtotal: number;
+      discount: number;
+      deliveryFee: number;
+      total: number;
+      createdAt: number;
+      estimatedDeliveryAt: number;
+      items: Array<{
+        productId: string;
+        name: string;
+        unit: Product["unit"];
+        emoji: string;
+        unitPrice: number;
+        quantity: number;
+        lineTotal: number;
+        soldByWeight: boolean;
+      }>;
+    }>;
+  }) => Order[];
   // storefront
   setDeliveryArea: (area: string) => void;
   toggleFavourite: (productId: string) => void;
@@ -121,6 +185,7 @@ interface AppStoreValue extends AppState {
   updateOrderStatus: (orderId: string, status: OrderStatus, note?: string) => void;
   setOrderPaymentStatus: (orderId: string, status: Payment["status"]) => void;
   assignDriver: (orderId: string, driver: string) => void;
+  assignPreparationStaff: (orderId: string, staffUserId: string) => void;
   setDeliveryRouteSequence: (driver: string, orderIds: string[]) => void;
   reorder: (orderId: string) => { added: number; unavailable: string[]; priceChanged: string[] };
   // admin
@@ -129,9 +194,9 @@ interface AppStoreValue extends AppState {
   setStock: (productId: string, stock: number, lowStockThreshold?: number) => void;
   upsertCategory: (category: Category) => void;
   upsertPromotion: (promotion: Promotion) => void;
-  updateShop: (patch: Partial<Shop>) => void;
   toggleNotification: (id: string) => void;
   updateAccount: (account: { name: string; phone: string; email?: string }) => void;
+  updateShop: (patch: Partial<Shop>) => Promise<void>;
   saveAddress: (address: DeliveryAddress) => void;
   removeAddress: (id: string) => void;
   saveDeliveryLandmark: (landmark: DeliveryLandmark) => void;
@@ -143,50 +208,52 @@ const AppStoreContext = createContext<AppStoreValue | null>(null);
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
   const [hydrated, setHydrated] = useState(false);
+  const saveProductMutation = useMutation(api.catalog.upsertProduct);
+  const deleteProductMutation = useMutation(api.catalog.deleteProduct);
+  const saveCategoryMutation = useMutation(api.catalog.upsertCategory);
+  const savePromotionMutation = useMutation(api.catalog.upsertPromotion);
+  const saveStoreSettingsMutation = useMutation(api.catalog.updateStoreSettings);
+  const createPlatformStoreMutation = useMutation(api.stores.create);
+  const setPlatformStoreEnabledMutation = useMutation(api.stores.setEnabled);
+  const updateOrderStatusMutation = useMutation(api.orders.updateStatus);
+  const assignDriverMutation = useMutation(api.orders.assignDriver);
+  const assignPreparationStaffMutation = useMutation(api.orders.assignPreparationStaff);
+  const paymentStatusMutation = useMutation(api.orders.setPaymentStatus);
+  const routeSequenceMutation = useMutation(api.orders.setRouteSequence);
+  const toggleFavouriteMutation = useMutation(api.customers.toggleFavourite);
+  const setPreferenceMutation = useMutation(api.customers.setPreference);
+  const updateProfileMutation = useMutation(api.customers.updateProfile);
+  const saveAddressMutation = useMutation(api.customers.saveAddress);
+  const removeAddressMutation = useMutation(api.customers.removeAddress);
+  const savePlaceMutation = useMutation(api.deliveryPlaces.upsert);
+  const removePlaceMutation = useMutation(api.deliveryPlaces.remove);
+
+  const reportFailure = useCallback((reason: unknown) => {
+    toast.error(reason instanceof Error ? reason.message : "Could not save the change.");
+  }, []);
+  const sendProduct = useCallback((product: Product) => {
+    const { id, storeId, slug, name, description, categoryId, price, promoPrice, unit, soldByWeight, weightOptions, stock, lowStockThreshold, available, popularity, emoji, variants } = product;
+    const productId = id.startsWith("prd_") ? undefined : id as Id<"products">;
+    return saveProductMutation({
+      ...(productId ? { productId } : {}), storeId: storeId as Id<"stores">, slug, name, description,
+      categoryId: categoryId as Id<"categories">, price, ...(promoPrice === undefined ? {} : { promoPrice }),
+      unit, soldByWeight, ...(weightOptions === undefined ? {} : { weightOptions }), stock, lowStockThreshold,
+      available, popularity, emoji, ...(variants === undefined ? {} : { variants: variants.map(({ label, multiplier }) => ({ label, multiplier })) }),
+    });
+  }, [saveProductMutation]);
 
   useEffect(() => {
     try {
-      const currentRaw = window.localStorage.getItem(STORAGE_KEY);
-      const legacyRaw = currentRaw === null ? window.localStorage.getItem(LEGACY_STORAGE_KEY) : null;
-      const raw = currentRaw ?? legacyRaw;
+      let raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) raw = PREVIOUS_STORAGE_KEYS.map((key) => window.localStorage.getItem(key)).find(Boolean) ?? null;
       if (raw) {
         const saved = renameSavedBrand(JSON.parse(raw)) as Partial<AppState>;
-        if (legacyRaw !== null) {
-          try {
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
-            window.localStorage.removeItem(LEGACY_STORAGE_KEY);
-          } catch {
-            /* Keep loading the saved state if storage is temporarily unavailable. */
-          }
-        }
-        setState((prev) => {
-          const customers = saved.customers ?? prev.customers;
-          const account = {
-            ...prev.account,
-            ...saved.account,
-            customerId:
-              saved.account?.customerId ??
-              customers.find((customer) => customer.phone === saved.account?.phone)?.id ??
-              prev.account.customerId,
-          };
-          const orders = (saved.orders ?? prev.orders).map((order) => ({
-            ...order,
-            customer: {
-              ...order.customer,
-              customerId:
-                order.customer.customerId ??
-                customers.find((customer) => customer.phone === order.customer.phone)?.id,
-            },
-          }));
-          return {
-            ...prev,
-            ...saved,
-            account,
-            customers,
-            orders,
-            deliveryLandmarks: saved.deliveryLandmarks ?? prev.deliveryLandmarks,
-          };
-        });
+        setState((prev) => ({
+          ...prev,
+          cart: Array.isArray(saved.cart) ? saved.cart : [],
+          deliveryArea: typeof saved.deliveryArea === "string" ? saved.deliveryArea : prev.deliveryArea,
+        }));
+        for (const key of PREVIOUS_STORAGE_KEYS) window.localStorage.removeItem(key);
       }
     } catch {
       /* ignore corrupt storage */
@@ -198,24 +265,178 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ cart: state.cart, deliveryArea: state.deliveryArea }));
     } catch {
       /* storage full or unavailable */
     }
-  }, [state, hydrated]);
+  }, [state.cart, state.deliveryArea, hydrated]);
 
   const patch = useCallback((updater: (prev: AppState) => AppState) => setState(updater), []);
+  const replaceMarketplaceCatalog = useCallback(
+    (catalog: { stores: Shop[]; categories: Category[]; products: Product[]; promotions?: Promotion[] }) => {
+      patch((prev) => {
+        if (!catalog.stores.length) return prev;
+        const selectedArea = catalog.stores.some((store) =>
+          store.deliveryAreas.includes(prev.deliveryArea),
+        )
+          ? prev.deliveryArea
+          : catalog.stores[0]!.defaultDeliveryArea;
+        const productsBySlug = new Map(catalog.products.map((product) => [product.slug, product]));
+        return {
+          ...prev,
+          shop: catalog.stores[0]!,
+          stores: catalog.stores,
+          categories: catalog.categories,
+          products: catalog.products,
+          ...(catalog.promotions ? { promotions: catalog.promotions } : {}),
+          deliveryArea: selectedArea,
+          cart: prev.cart.flatMap((item) => {
+            const current = catalog.products.find((product) => product.id === item.productId);
+            const previous = prev.products.find((product) => product.id === item.productId);
+            const product = current ?? (previous ? productsBySlug.get(previous.slug) : undefined);
+            return product
+              ? [
+                  {
+                    ...item,
+                    id: `ci_${product.id}`,
+                    productId: product.id,
+                    storeId: product.storeId,
+                    storeName: product.storeName,
+                    name: product.name,
+                    unit: product.unit,
+                    unitPrice: product.promoPrice ?? product.price,
+                    emoji: product.emoji,
+                    soldByWeight: product.soldByWeight,
+                  },
+                ]
+              : [];
+          }),
+        };
+      });
+    },
+    [patch],
+  );
+  const replaceManagementWorkspace = useCallback(
+    (catalog: { stores: Shop[]; categories: Category[]; products: Product[]; promotions: Promotion[] }) => {
+      patch((prev) => ({
+        ...prev,
+        managementStores: catalog.stores,
+        managementCategories: catalog.categories,
+        managementProducts: catalog.products,
+        managementPromotions: catalog.promotions,
+        managementStoreId: catalog.stores.some((store) => store.id === prev.managementStoreId)
+          ? prev.managementStoreId
+          : catalog.stores[0]?.id ?? prev.managementStoreId,
+      }));
+    },
+    [patch],
+  );
+  const replaceStaffWorkspace = useCallback(
+    (workspace: { orders: Order[]; customers: Customer[]; drivers: AppState["drivers"]; preparationStaff?: AppState["preparationStaff"]; deliveryRouteSequence?: Record<string, string[]> }) => {
+      patch((prev) => ({ ...prev, orders: workspace.orders, customers: workspace.customers, drivers: workspace.drivers, preparationStaff: workspace.preparationStaff ?? [], deliveryRouteSequence: workspace.deliveryRouteSequence ?? {} }));
+    },
+    [patch],
+  );
+  const replaceDeliveryLandmarks = useCallback((places: DeliveryLandmark[]) => {
+    patch((prev) => ({ ...prev, deliveryLandmarks: places }));
+  }, [patch]);
+  const replaceCustomerAccount = useCallback((account: { customerId: string; name: string; phone: string; email: string; addresses: DeliveryAddress[]; favourites: string[]; preferences: Array<{ key: string; enabled: boolean }> }) => {
+    patch((prev) => ({
+      ...prev,
+      account: { customerId: account.customerId, name: account.name, phone: account.phone, email: account.email, signedIn: true },
+      savedAddresses: account.addresses,
+      favourites: account.favourites,
+      notificationPreferences: prev.notificationPreferences.map((preference) => ({
+        ...preference,
+        enabled: account.preferences.find((item) => item.key === preference.id)?.enabled ?? preference.enabled,
+      })),
+    }));
+  }, [patch]);
 
   const value = useMemo<AppStoreValue>(() => {
     const cartCount = state.cart.length;
     const cartSubtotal = Number(
       state.cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0).toFixed(2),
     );
+    const managementStore = state.managementStores.find((store) => store.id === state.managementStoreId) ?? state.managementStores[0] ?? state.shop;
 
     return {
       ...state,
+      managementStore,
+      setManagementStore: (storeId) => {
+        if (state.managementStores.some((store) => store.id === storeId)) {
+          patch((prev) => ({ ...prev, managementStoreId: storeId }));
+        }
+      },
+      createPlatformStore: (args) => createPlatformStoreMutation(args),
+      setPlatformStoreEnabled: (storeId, enabled) => setPlatformStoreEnabledMutation({ storeId, enabled }),
       cartCount,
       cartSubtotal,
+
+      replaceMarketplaceCatalog,
+      replaceManagementWorkspace,
+      replaceStaffWorkspace,
+      replaceDeliveryLandmarks,
+      replaceCustomerAccount,
+
+      recordConvexCheckout: ({ checkoutId, customer, address, payment, orders: receipts }) => {
+        const orders: Order[] = receipts.map((receipt, index) => {
+          const createdAt = new Date(receipt.createdAt).toISOString();
+          return {
+            id: receipt.orderId,
+            checkoutId,
+            storeId: receipt.storeId,
+            storeName: receipt.storeName,
+            number: receipt.orderNumber,
+            customer: { ...customer, customerId: state.account.customerId },
+            items: receipt.items.map((item) => ({
+              id: `oi_${item.productId}`,
+              productId: item.productId,
+              storeId: receipt.storeId,
+              storeName: receipt.storeName,
+              name: item.name,
+              unit: item.unit,
+              unitPrice: item.unitPrice,
+              emoji: item.emoji,
+              quantity: item.quantity,
+              soldByWeight: item.soldByWeight,
+              lineTotal: item.lineTotal,
+            })),
+            address,
+            payment: index === 0 ? payment : { ...payment, changeRequired: undefined },
+            subtotal: receipt.subtotal,
+            deliveryFee: receipt.deliveryFee,
+            discount: receipt.discount,
+            total: receipt.total,
+            status: "received",
+            createdAt,
+            estimatedDelivery: new Date(receipt.estimatedDeliveryAt).toISOString(),
+            timeline: [
+              { status: "created", at: createdAt },
+              { status: "received", at: createdAt },
+            ],
+          };
+        });
+        patch((prev) => ({
+          ...prev,
+          orders: [...orders, ...prev.orders],
+          cart: [],
+          customers: prev.customers.map((savedCustomer) =>
+            savedCustomer.id === prev.account.customerId
+              ? {
+                  ...savedCustomer,
+                  ...customer,
+                  orders: savedCustomer.orders + orders.length,
+                  lifetimeSpend: Number(
+                    (savedCustomer.lifetimeSpend + orders.reduce((sum, order) => sum + order.total, 0)).toFixed(2),
+                  ),
+                  lastOrder: orders[0]?.createdAt ?? savedCustomer.lastOrder,
+                }
+              : savedCustomer,
+          ),
+        }));
+        return orders;
+      },
 
       addToCart: (product, quantity = product.soldByWeight ? 1 : 1) =>
         patch((prev) => {
@@ -233,6 +454,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           const item: CartItem = {
             id: `ci_${product.id}`,
             productId: product.id,
+            storeId: product.storeId,
+            storeName: product.storeName,
             name: product.name,
             unit: product.unit,
             unitPrice: product.promoPrice ?? product.price,
@@ -263,13 +486,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
       setDeliveryArea: (area) => patch((prev) => ({ ...prev, deliveryArea: area })),
 
-      toggleFavourite: (productId) =>
-        patch((prev) => ({
-          ...prev,
-          favourites: prev.favourites.includes(productId)
-            ? prev.favourites.filter((id) => id !== productId)
-            : [...prev.favourites, productId],
-        })),
+      toggleFavourite: (productId) => {
+        if (!state.account.signedIn) {
+          toast.error("Sign in to save products to your favourites.");
+          return;
+        }
+        void toggleFavouriteMutation({ productId: productId as Id<"products"> }).catch(reportFailure);
+      },
 
       placeOrder: ({ customer, address, payment, discount = 0 }) => {
         const subtotal = cartSubtotal;
@@ -283,6 +506,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         const now = new Date();
         const order: Order = {
           id: number.toLowerCase().replace("#", ""),
+          storeId: state.cart[0]?.storeId ?? state.shop.id,
+          storeName: state.cart[0]?.storeName ?? state.shop.name,
           number,
           customer: { ...customer, customerId: state.account.customerId },
           items: state.cart.map((item) => ({
@@ -330,66 +555,29 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         return order;
       },
 
-      updateOrderStatus: (orderId, status, note) =>
-        patch((prev) => ({
-          ...prev,
-          orders: prev.orders.map((o) =>
-            o.id === orderId
-              ? {
-                  ...o,
-                  status,
-                  timeline: [...o.timeline, { status, at: new Date().toISOString(), note }],
-                }
-              : o,
-          ),
-        })),
+      updateOrderStatus: (orderId, status) => {
+        void updateOrderStatusMutation({ orderId: orderId as Id<"orders">, status }).catch(reportFailure);
+      },
 
-      setOrderPaymentStatus: (orderId, status) =>
-        patch((prev) => ({
-          ...prev,
-          orders: prev.orders.map((order) =>
-            order.id === orderId
-              ? {
-                  ...order,
-                  payment: { ...order.payment, status },
-                  timeline: [
-                    ...order.timeline,
-                    {
-                      status: "note",
-                      at: new Date().toISOString(),
-                      note: `Payment marked ${status} by staff.`,
-                    },
-                  ],
-                }
-              : order,
-          ),
-        })),
+      setOrderPaymentStatus: (orderId, status) => {
+        void paymentStatusMutation({ orderId: orderId as Id<"orders">, status }).catch(reportFailure);
+      },
 
-      assignDriver: (orderId, driver) =>
-        patch((prev) => ({
-          ...prev,
-          orders: prev.orders.map((o) =>
-            o.id === orderId
-              ? {
-                  ...o,
-                  driver: driver || undefined,
-                  timeline: [
-                    ...o.timeline,
-                    { status: "note", at: new Date().toISOString(), note: driver ? `Driver assigned: ${driver}` : "Driver assignment cleared." },
-                  ],
-                }
-              : o,
-          ),
-        })),
+      assignDriver: (orderId, driver) => {
+        const selected = state.drivers.find((item) => item.id === driver || item.name === driver);
+        void assignDriverMutation({ orderId: orderId as Id<"orders">, driverUserId: selected ? selected.id as Id<"users"> : null }).catch(reportFailure);
+      },
 
-      setDeliveryRouteSequence: (driver, orderIds) =>
-        patch((prev) => ({
-          ...prev,
-          deliveryRouteSequence: {
-            ...prev.deliveryRouteSequence,
-            [driver]: orderIds,
-          },
-        })),
+      assignPreparationStaff: (orderId, staffUserId) => {
+        void assignPreparationStaffMutation({ orderId: orderId as Id<"orders">, staffUserId: (staffUserId || null) as Id<"users"> | null }).catch(reportFailure);
+      },
+
+      setDeliveryRouteSequence: (driver, orderIds) => {
+        const selected = state.drivers.find((item) => item.id === driver || item.name === driver);
+        const storeId = state.orders.find((order) => orderIds.includes(order.id))?.storeId ?? selected?.storeIds[0];
+        if (!selected || !storeId) return;
+        void routeSequenceMutation({ storeId: storeId as Id<"stores">, driverUserId: selected.id as Id<"users">, orderIds: orderIds as Id<"orders">[] }).catch(reportFailure);
+      },
 
       reorder: (orderId) => {
         const order = state.orders.find((o) => o.id === orderId);
@@ -411,6 +599,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             nextCart.push({
               id: `ci_${product.id}`,
               productId: product.id,
+              storeId: product.storeId,
+              storeName: product.storeName,
               name: product.name,
               unit: product.unit,
               unitPrice: currentPrice,
@@ -425,97 +615,73 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         return result;
       },
 
-      upsertProduct: (product) =>
-        patch((prev) => ({
-          ...prev,
-          products: prev.products.some((prd) => prd.id === product.id)
-            ? prev.products.map((prd) => (prd.id === product.id ? product : prd))
-            : [product, ...prev.products],
-        })),
+      upsertProduct: (product) => { void sendProduct(product).catch(reportFailure); },
 
-      removeProduct: (productId) =>
-        patch((prev) => ({ ...prev, products: prev.products.filter((p) => p.id !== productId) })),
+      removeProduct: (productId) => { void deleteProductMutation({ productId: productId as Id<"products"> }).catch(reportFailure); },
 
-      setStock: (productId, stock, lowStockThreshold) =>
-        patch((prev) => ({
-          ...prev,
-          products: prev.products.map((p) =>
-            p.id === productId
-              ? {
-                  ...p,
-                  stock,
-                  lowStockThreshold: lowStockThreshold ?? p.lowStockThreshold,
-                  available: stock > 0 ? p.available : false,
-                }
-              : p,
-          ),
-        })),
+      setStock: (productId, stock, lowStockThreshold) => {
+        const product = state.managementProducts.find((item) => item.id === productId);
+        if (!product) return;
+        void sendProduct({ ...product, stock, lowStockThreshold: lowStockThreshold ?? product.lowStockThreshold, available: stock > 0 && product.available }).catch(reportFailure);
+      },
 
-      upsertCategory: (category) =>
-        patch((prev) => ({
-          ...prev,
-          categories: prev.categories.some((c) => c.id === category.id)
-            ? prev.categories.map((c) => (c.id === category.id ? category : c))
-            : [...prev.categories, category],
-        })),
+      upsertCategory: (category) => {
+        const categoryId = category.id.startsWith("cat_") ? undefined : category.id as Id<"categories">;
+        const storeId = category.storeId ?? managementStore.id;
+        void saveCategoryMutation({ ...(categoryId ? { categoryId } : {}), storeId: storeId as Id<"stores">, slug: category.slug, name: category.name, emoji: category.emoji, accent: category.accent, enabled: category.enabled, sortOrder: category.order }).catch(reportFailure);
+      },
 
-      upsertPromotion: (promotion) =>
-        patch((prev) => ({
-          ...prev,
-          promotions: prev.promotions.some((pr) => pr.id === promotion.id)
-            ? prev.promotions.map((pr) => (pr.id === promotion.id ? promotion : pr))
-            : [promotion, ...prev.promotions],
-        })),
+      upsertPromotion: (promotion) => {
+        const promotionId = promotion.id.startsWith("promo_") ? undefined : promotion.id as Id<"promotions">;
+        void savePromotionMutation({ ...(promotionId ? { promotionId } : {}), storeId: (promotion.storeId ?? managementStore.id) as Id<"stores">, name: promotion.name, type: promotion.type, value: promotion.value, ...(promotion.code ? { code: promotion.code } : {}), startDate: promotion.startDate, endDate: promotion.endDate, active: promotion.active }).catch(reportFailure);
+      },
 
-      updateShop: (shopPatch) =>
-        patch((prev) => ({ ...prev, shop: { ...prev.shop, ...shopPatch } })),
+      updateShop: (shopPatch) => {
+        const shop = { ...managementStore, ...shopPatch };
+        return saveStoreSettingsMutation({
+          storeId: shop.id as Id<"stores">,
+          name: shop.name,
+          tagline: shop.tagline,
+          phone: shop.phone,
+          whatsapp: shop.whatsapp,
+          address: shop.address,
+          openingHours: shop.openingHours,
+          deliveryFee: shop.deliveryFee,
+          minimumOrder: shop.minimumOrder,
+          deliveryAreas: shop.deliveryAreas,
+          defaultDeliveryArea: shop.defaultDeliveryArea,
+          mobileMoneyEnabled: shop.paymentOptions.mobileMoney,
+          cashOnDeliveryEnabled: shop.paymentOptions.cashOnDelivery,
+          cardEnabled: false,
+        }).then(() => undefined);
+      },
 
-      toggleNotification: (id) =>
-        patch((prev) => ({
-          ...prev,
-          notificationPreferences: prev.notificationPreferences.map((np) =>
-            np.id === id ? { ...np, enabled: !np.enabled } : np,
-          ),
-        })),
+      toggleNotification: (id) => {
+        const preference = state.notificationPreferences.find((item) => item.id === id);
+        if (preference) void setPreferenceMutation({ key: id, enabled: !preference.enabled }).catch(reportFailure);
+      },
 
-      updateAccount: (account) =>
-        patch((prev) => ({
-          ...prev,
-          account: { ...prev.account, ...account },
-          customers: prev.customers.map((customer) =>
-            customer.id === prev.account.customerId ? { ...customer, ...account } : customer,
-          ),
-        })),
+      updateAccount: (account) => {
+        void updateProfileMutation({ name: account.name, phone: account.phone }).catch(reportFailure);
+      },
 
-      saveAddress: (address) =>
-        patch((prev) => ({
-          ...prev,
-          savedAddresses: prev.savedAddresses.some((saved) => saved.id === address.id)
-            ? prev.savedAddresses.map((saved) => saved.id === address.id ? address : saved)
-            : [...prev.savedAddresses, { ...address, id: address.id ?? crypto.randomUUID() }],
-        })),
+      saveAddress: (address) => {
+        const addressId = address.id && state.savedAddresses.some((saved) => saved.id === address.id) ? address.id as Id<"customerAddresses"> : undefined;
+        void saveAddressMutation({ ...(addressId ? { addressId } : {}), label: address.label ?? "Address", area: address.area, address: address.address, ...(address.landmark ? { landmark: address.landmark } : {}), ...(address.instructions ? { instructions: address.instructions } : {}), ...(address.lat === undefined || address.lng === undefined ? {} : { latitude: address.lat, longitude: address.lng }) }).catch(reportFailure);
+      },
 
-      removeAddress: (id) =>
-        patch((prev) => ({
-          ...prev,
-          savedAddresses: prev.savedAddresses.filter((a) => a.id !== id),
-        })),
+      removeAddress: (id) => { void removeAddressMutation({ addressId: id as Id<"customerAddresses"> }).catch(reportFailure); },
 
-      saveDeliveryLandmark: (landmark) =>
-        patch((prev) => ({
-          ...prev,
-          deliveryLandmarks: prev.deliveryLandmarks.some((item) => item.id === landmark.id)
-            ? prev.deliveryLandmarks.map((item) => (item.id === landmark.id ? landmark : item))
-            : [...prev.deliveryLandmarks, landmark],
-        })),
+      saveDeliveryLandmark: (landmark) => {
+        const placeId = state.deliveryLandmarks.some((place) => place.id === landmark.id)
+          ? landmark.id as Id<"deliveryLandmarks">
+          : undefined;
+        void savePlaceMutation({ ...(placeId ? { placeId } : {}), storeId: (landmark.storeId ?? managementStore.id) as Id<"stores">, name: landmark.name, aliases: landmark.aliases, area: landmark.area, latitude: landmark.lat, longitude: landmark.lng, verified: true }).catch(reportFailure);
+      },
 
-      removeDeliveryLandmark: (id) =>
-        patch((prev) => ({
-          ...prev,
-          deliveryLandmarks: prev.deliveryLandmarks.filter((item) => item.id !== id),
-        })),
+      removeDeliveryLandmark: (id) => { void removePlaceMutation({ placeId: id as Id<"deliveryLandmarks"> }).catch(reportFailure); },
     };
-  }, [state, patch]);
+  }, [state, patch, replaceMarketplaceCatalog, replaceManagementWorkspace, replaceStaffWorkspace, replaceDeliveryLandmarks, replaceCustomerAccount, sendProduct, deleteProductMutation, saveCategoryMutation, savePromotionMutation, saveStoreSettingsMutation, createPlatformStoreMutation, setPlatformStoreEnabledMutation, updateOrderStatusMutation, assignDriverMutation, assignPreparationStaffMutation, paymentStatusMutation, routeSequenceMutation, toggleFavouriteMutation, setPreferenceMutation, updateProfileMutation, saveAddressMutation, removeAddressMutation, savePlaceMutation, removePlaceMutation, reportFailure]);
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;
 }
@@ -524,6 +690,18 @@ export function useAppStore() {
   const ctx = useContext(AppStoreContext);
   if (!ctx) throw new Error("useAppStore must be used inside AppStoreProvider");
   return ctx;
+}
+
+export function groupCartByStore(cart: CartItem[], stores: Shop[]) {
+  return stores
+    .map((store) => {
+      const items = cart.filter((item) => item.storeId === store.id);
+      const subtotal = Number(
+        items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0).toFixed(2),
+      );
+      return { store, items, subtotal, total: Number((subtotal + store.deliveryFee).toFixed(2)) };
+    })
+    .filter((group) => group.items.length > 0);
 }
 
 /* ---------- selectors (pure, easy to swap for Convex queries) ---------- */
@@ -542,7 +720,7 @@ export function filterProducts(
   products: Product[],
   options: {
     search?: string;
-    categoryId?: string;
+    categoryId?: string | string[];
     maxPrice?: number;
     inStockOnly?: boolean;
     sort?: "popular" | "price_asc" | "price_desc" | "newest";
@@ -552,7 +730,7 @@ export function filterProducts(
   const term = search.trim().toLowerCase();
   let result = products.filter((p) => {
     if (term && !p.name.toLowerCase().includes(term)) return false;
-    if (categoryId && p.categoryId !== categoryId) return false;
+    if (categoryId && (Array.isArray(categoryId) ? !categoryId.includes(p.categoryId) : p.categoryId !== categoryId)) return false;
     if (maxPrice != null && effectivePrice(p) > maxPrice) return false;
     if (inStockOnly && stockStatus(p) === "out_of_stock") return false;
     return true;
@@ -588,6 +766,7 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   ready: "Ready for Delivery",
   out_for_delivery: "Out for Delivery",
   delivered: "Delivered",
+  rejected: "Declined by Store",
   cancelled: "Cancelled",
 };
 

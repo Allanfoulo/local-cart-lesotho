@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { DriverDashboard } from "@/components/driver/DriverDashboard";
+import { RequireMembership } from "@/components/auth/RequireMembership";
 
 export const Route = createFileRoute("/driver")({
   head: () => ({
@@ -8,5 +9,5 @@ export const Route = createFileRoute("/driver")({
       { name: "description", content: "Review and update assigned delivery stops." },
     ],
   }),
-  component: DriverDashboard,
+  component: () => <RequireMembership roles={["driver"]}><DriverDashboard /></RequireMembership>,
 });

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { Link } from "@tanstack/react-router";
 import {
   BarChart3,
@@ -12,22 +13,28 @@ import {
   CheckCircle2,
   Truck,
   Users,
+  Store as StoreIcon,
 } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DeliveryPlacesManager } from "@/components/admin/DeliveryPlacesManager";
 import { DispatchBoard } from "@/components/admin/orders/DispatchBoard";
 import { CatalogueManagement } from "@/components/admin/CatalogueManagement";
 import { OffersManagement } from "@/components/admin/OffersManagement";
+import { MembershipManagement } from "@/components/admin/MembershipManagement";
+import { StoresManagement } from "@/components/admin/StoresManagement";
+import { ManagementStoreSelector } from "@/components/admin/ManagementStoreSelector";
 import {
   useAppStore,
-  ORDER_STATUS_FLOW,
   ORDER_STATUS_LABEL,
   PAYMENT_LABEL,
   stockStatus,
 } from "@/lib/app-store";
 import { formatDate, formatM } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
+import { canAssignPreparation, nextOrderStatus, type OrderWorkflowRole } from "@/domain/orders/workflow";
 
 const sections = [
   ["overview", "Today", LayoutDashboard],
@@ -39,34 +46,41 @@ const sections = [
   ["places", "Delivery places", MapPinned],
   ["reports", "Reports", BarChart3],
   ["settings", "Shop settings", Settings],
+  ["team", "Team access", Users],
 ] as const;
 type Section = (typeof sections)[number][0];
-const drivers = ["Kabelo M.", "Lineo P.", "Not assigned"];
+type WorkspaceSection = Section | "stores";
 
 export function StaffWorkspace() {
   const store = useAppStore();
-  const [section, setSection] = useState<Section>("overview");
+  const access = useQuery(api.memberships.currentAccess, {});
+  const { signOut } = useAuthActions();
+  const [section, setSection] = useState<WorkspaceSection>("overview");
+  const [orderStoreId, setOrderStoreId] = useState<string>("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [notice, setNotice] = useState("");
+  const selectedOrderStoreId = access?.stores.find((item) => item.id === orderStoreId)?.id ?? access?.stores[0]?.id ?? store.managementStore.id;
   const orders = useMemo(
     () =>
       store.orders.filter(
         (order) =>
+          order.storeId === selectedOrderStoreId &&
           (statusFilter === "all" || order.status === statusFilter) &&
           `${order.number} ${order.customer.name} ${order.address.area}`
             .toLowerCase()
             .includes(query.toLowerCase()),
       ),
-    [store.orders, query, statusFilter],
+    [store.orders, selectedOrderStoreId, query, statusFilter],
   );
   const openOrders = store.orders.filter(
-    (order) => !["delivered", "cancelled"].includes(order.status),
+    (order) => order.storeId === selectedOrderStoreId && !["delivered", "rejected", "cancelled"].includes(order.status),
   );
-  const lowStock = store.products.filter((product) => stockStatus(product) !== "in_stock");
+  const lowStock = store.managementProducts.filter((product) => product.storeId === store.managementStore.id && stockStatus(product) !== "in_stock");
   const todaysSales = store.orders
     .filter(
       (order) =>
+        order.storeId === selectedOrderStoreId &&
         order.status === "delivered" &&
         new Date(order.createdAt).toDateString() === new Date().toDateString(),
     )
@@ -75,7 +89,19 @@ export function StaffWorkspace() {
     store.updateOrderStatus(id, status);
     setNotice(`Order updated to ${ORDER_STATUS_LABEL[status].toLowerCase()}.`);
   };
-  const heading = sections.find(([id]) => id === section)?.[1] ?? "Today";
+  const workflowRole = (storeId: string | undefined): OrderWorkflowRole => {
+    if (access?.isSuperadmin) return "store_manager";
+    const roles = access?.memberships.filter((membership) => membership.storeId === storeId && membership.status === "active").map((membership) => membership.role) ?? [];
+    if (roles.includes("store_owner")) return "store_owner";
+    if (roles.includes("store_manager")) return "store_manager";
+    if (roles.includes("dispatcher")) return "dispatcher";
+    if (roles.includes("driver")) return "driver";
+    return "order_staff";
+  };
+  const driversForStore = store.drivers.filter((driver) => driver.storeIds.includes(selectedOrderStoreId));
+  const preparationStaffForStore = store.preparationStaff.filter((staff) => staff.storeIds.includes(selectedOrderStoreId));
+  const navigation = access?.isSuperadmin ? [...sections, ["stores", "Stores", StoreIcon] as const] : sections;
+  const heading = navigation.find(([id]) => id === section)?.[1] ?? "Today";
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-9">
@@ -84,24 +110,19 @@ export function StaffWorkspace() {
           <p className="text-sm font-semibold text-primary">REETAPELE · STAFF</p>
           <h1 className="mt-1 text-3xl font-bold tracking-tight">{heading}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Your local store workspace. Changes are saved in this browser.
+            Your store workspace. Authorized changes sync across the team.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Link
-            to="/demo-login"
-            className="inline-flex min-h-11 items-center rounded-xl border bg-card px-3 text-sm font-semibold text-primary hover:bg-muted"
-          >
-            Switch demo view
-          </Link>
+          <Button variant="outline" className="min-h-11" onClick={() => void signOut()}>Sign out</Button>
           <span className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-primary">
             <span className="size-2 rounded-full bg-primary" />
-            Store open
+            {(access?.stores.find((item) => item.id === selectedOrderStoreId)?.enabled ?? store.managementStore.enabled) ? "Store published" : "Store paused"}
           </span>
         </div>
       </header>
       <nav className="mb-7 flex gap-2 overflow-x-auto pb-2" aria-label="Staff workspace sections">
-        {sections.map(([id, label, Icon]) => (
+        {navigation.map(([id, label, Icon]) => (
           <button
             key={id}
             aria-current={section === id ? "page" : undefined}
@@ -113,6 +134,14 @@ export function StaffWorkspace() {
           </button>
         ))}
       </nav>
+      {access?.stores && access.stores.length > 1 && (section === "overview" || section === "orders" || section === "dispatch") && (
+        <label className="mb-5 block max-w-sm text-sm font-medium">
+          Orders for
+          <select aria-label="Orders for store" className="mt-1.5 h-11 w-full rounded-xl border bg-card px-3" value={selectedOrderStoreId} onChange={(event) => setOrderStoreId(event.target.value)}>
+            {access.stores.map((item) => <option key={item.id} value={item.id}>{item.name}{item.enabled ? "" : " (paused)"}</option>)}
+          </select>
+        </label>
+      )}
       {notice && (
         <p role="status" className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-primary">
           {notice}
@@ -166,6 +195,10 @@ export function StaffWorkspace() {
                   setStatus={setStatus}
                   assign={store.assignDriver}
                   paymentStatus={store.setOrderPaymentStatus}
+                  assignPreparation={store.assignPreparationStaff}
+                  preparationStaff={preparationStaffForStore}
+                  drivers={driversForStore}
+                  role={workflowRole(order.storeId)}
                 />
               ))}
               {openOrders.length === 0 && (
@@ -217,6 +250,10 @@ export function StaffWorkspace() {
                 setStatus={setStatus}
                 assign={store.assignDriver}
                 paymentStatus={store.setOrderPaymentStatus}
+                assignPreparation={store.assignPreparationStaff}
+                preparationStaff={preparationStaffForStore}
+                drivers={driversForStore}
+                role={workflowRole(order.storeId)}
               />
             ))}
             {orders.length === 0 && <Empty text="No matching orders." />}
@@ -224,15 +261,17 @@ export function StaffWorkspace() {
         </section>
       )}
       {section === "customers" && <CustomersPanel />}
-      {section === "dispatch" && <DispatchBoard />}
+      {section === "dispatch" && <DispatchBoard storeId={selectedOrderStoreId} />}
       {section === "stock" && <CatalogueManagement />}
       {section === "promotions" && <OffersManagement />}
       {section === "places" && <DeliveryPlacesManager />}
       {section === "reports" && <ReportsPanel />}
       {section === "settings" && <SettingsPanel />}
+      {section === "team" && <MembershipManagement />}
+      {section === "stores" && access?.isSuperadmin && <StoresManagement />}
       <p className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
         <CheckCircle2 className="size-4 text-primary" />
-        Prototype workspace, no staff sign-in or cross-device sync is enabled.
+        Role permissions are checked by Convex and changes update across active sessions.
       </p>
     </main>
   );
@@ -309,7 +348,7 @@ function CustomersPanel() {
               </div>
               <details className="mt-3 text-sm">
                 <summary className="cursor-pointer font-medium text-primary">
-                  Recent orders in this browser ({customerOrders.length})
+                  Recent orders ({customerOrders.length})
                 </summary>
                 {customerOrders.length ? (
                   <ul className="mt-2 divide-y rounded-xl border">
@@ -330,7 +369,7 @@ function CustomersPanel() {
                   </ul>
                 ) : (
                   <p className="mt-2 text-muted-foreground">
-                    No matching order details are saved in this browser.
+                    No matching order details were found.
                   </p>
                 )}
               </details>
@@ -340,7 +379,7 @@ function CustomersPanel() {
         {matching.length === 0 && <Empty text="No customers match that search." />}
       </div>
       <p className="text-xs text-muted-foreground">
-        Customer records and contact details are stored in this browser prototype.
+        Customer details are visible only to members authorized for the selected store.
       </p>
     </section>
   );
@@ -388,7 +427,7 @@ function ReportsPanel() {
         <div>
           <h2 className="text-xl font-semibold">Reports</h2>
           <p className="text-sm text-muted-foreground">
-            Order activity and payment totals based on records saved in this browser.
+            Order activity and payment totals use saved Convex records for your authorized stores.
           </p>
         </div>
         <label className="text-sm font-medium">
@@ -469,7 +508,7 @@ function ReportsPanel() {
       </div>
       <p className="rounded-xl bg-muted/60 p-3 text-xs text-muted-foreground">
         Paid and outstanding totals follow each order’s recorded payment status; delivery status
-        does not count as proof of payment. These are local demo reports, not accounting exports.
+        does not count as proof of payment. These are operational summaries, not accounting exports.
       </p>
     </section>
   );
@@ -481,17 +520,24 @@ function OrderRow({
   order,
   setStatus,
   assign,
+  assignPreparation,
   paymentStatus,
+  drivers,
+  preparationStaff,
+  role,
 }: {
   order: ReturnType<typeof useAppStore>["orders"][number];
   setStatus: (id: string, status: OrderStatus) => void;
   assign: (id: string, driver: string) => void;
+  assignPreparation: (id: string, staffUserId: string) => void;
   paymentStatus: (id: string, status: "pending" | "paid" | "unpaid") => void;
+  drivers: ReturnType<typeof useAppStore>["drivers"];
+  preparationStaff: ReturnType<typeof useAppStore>["preparationStaff"];
+  role: OrderWorkflowRole;
 }) {
-  const next =
-    ORDER_STATUS_FLOW[
-      Math.min(ORDER_STATUS_FLOW.indexOf(order.status) + 1, ORDER_STATUS_FLOW.length - 1)
-    ] ?? order.status;
+  const next = nextOrderStatus(role, order.status);
+  const canManage = canAssignPreparation(role);
+  const canDispatch = canManage || role === "dispatcher";
   return (
     <article className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
       <div className="min-w-0">
@@ -501,6 +547,7 @@ function OrderRow({
             {ORDER_STATUS_LABEL[order.status]}
           </span>
           <span className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</span>
+          {order.assignedStaff && <span className="text-xs text-muted-foreground">Prepared by {order.assignedStaff}</span>}
         </div>
         <p className="mt-1 text-sm">
           {order.customer.name} · {order.customer.phone} · {order.address.area}
@@ -542,19 +589,27 @@ function OrderRow({
         </details>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <select
+        {canManage && preparationStaff.length > 0 && !["ready", "out_for_delivery", "delivered", "rejected", "cancelled"].includes(order.status) && <select
+          aria-label={`Assign order preparation for ${order.number}`}
+          className="h-9 rounded-lg border bg-background px-2 text-sm"
+          value={order.assignedStaffUserId || "Not assigned"}
+          onChange={(e) => assignPreparation(order.id, e.target.value === "Not assigned" ? "" : e.target.value)}
+        >
+          <option value="Not assigned">No prep assignee</option>
+          {preparationStaff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
+        </select>}
+        {canDispatch && <select
           aria-label={`Assign driver for ${order.number}`}
           className="h-9 rounded-lg border bg-background px-2 text-sm"
-          value={order.driver || "Not assigned"}
+          value={order.driverUserId || "Not assigned"}
           onChange={(e) =>
             assign(order.id, e.target.value === "Not assigned" ? "" : e.target.value)
           }
         >
-          {drivers.map((d) => (
-            <option key={d}>{d}</option>
-          ))}
-        </select>
-        <select
+          <option value="Not assigned">Not assigned</option>
+          {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>}
+        {canManage && <select
           aria-label={`Payment status for ${order.number}`}
           className="h-9 rounded-lg border bg-background px-2 text-sm"
           value={order.payment.status}
@@ -563,15 +618,14 @@ function OrderRow({
           <option value="pending">Payment pending</option>
           <option value="paid">Paid</option>
           <option value="unpaid">Unpaid</option>
-        </select>
+        </select>}
         {order.status !== "delivered" && order.status !== "cancelled" && (
           <>
-            <Button size="sm" onClick={() => setStatus(order.id, next)}>
+            {next !== order.status && <Button size="sm" onClick={() => setStatus(order.id, next)}>
               {next === order.status ? "Current" : `Mark ${ORDER_STATUS_LABEL[next]}`}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setStatus(order.id, "cancelled")}>
-              Cancel
-            </Button>
+            </Button>}
+            {canManage && order.status === "received" && <Button size="sm" variant="outline" onClick={() => setStatus(order.id, "rejected")}>Reject order</Button>}
+            {canManage && !["rejected", "cancelled"].includes(order.status) && <Button size="sm" variant="outline" onClick={() => setStatus(order.id, "cancelled")}>Cancel</Button>}
           </>
         )}
       </div>
@@ -579,21 +633,44 @@ function OrderRow({
   );
 }
 function SettingsPanel() {
-  const { shop, updateShop } = useAppStore();
+  const { managementStore: shop, updateShop } = useAppStore();
   const [saved, setSaved] = useState(false);
-  const textField = (name: "phone" | "whatsapp" | "address" | "openingHours", label: string) => (
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [draft, setDraft] = useState(() => ({
+    ...shop,
+    paymentOptions: { ...shop.paymentOptions, card: false },
+  }));
+  useEffect(() => {
+    setDraft({ ...shop, paymentOptions: { ...shop.paymentOptions, card: false } });
+    setSaved(false);
+  }, [shop]);
+  const textField = (name: "name" | "tagline" | "phone" | "whatsapp" | "address" | "openingHours", label: string) => (
     <label className="block text-sm font-medium">
       {label}
       <Input
         className="mt-1.5"
-        value={shop[name]}
+        value={draft[name]}
         onChange={(e) => {
-          updateShop({ [name]: e.target.value });
+          setDraft((current) => ({ ...current, [name]: e.target.value }));
           setSaved(false);
         }}
       />
     </label>
   );
+  async function submitSettings() {
+    setSaving(true);
+    setError("");
+    setSaved(false);
+    try {
+      await updateShop(draft);
+      setSaved(true);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not save these store settings.");
+    } finally {
+      setSaving(false);
+    }
+  }
   const moneyField = (name: "deliveryFee" | "minimumOrder", label: string) => (
     <label className="block text-sm font-medium">
       {label}
@@ -602,9 +679,9 @@ function SettingsPanel() {
         min="0"
         step="0.5"
         className="mt-1.5"
-        value={shop[name]}
+        value={draft[name]}
         onChange={(e) => {
-          updateShop({ [name]: Number(e.target.value) });
+          setDraft((current) => ({ ...current, [name]: Number(e.target.value) }));
           setSaved(false);
         }}
       />
@@ -612,13 +689,16 @@ function SettingsPanel() {
   );
   return (
     <section className="max-w-3xl space-y-5">
-      <div>
+      <div className="space-y-3">
         <h2 className="text-xl font-semibold">Shop settings</h2>
         <p className="text-sm text-muted-foreground">
-          Contact details, delivery offer, and opening information.
+          Contact details, delivery offer, and opening information for {shop.name}.
         </p>
+        <ManagementStoreSelector />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
+        {textField("name", "Store name")}
+        {textField("tagline", "Short description")}
         {textField("phone", "Phone")}
         {textField("whatsapp", "WhatsApp")}
         {textField("address", "Shop address")}
@@ -629,13 +709,13 @@ function SettingsPanel() {
           Default delivery area
           <select
             className="mt-1.5 h-10 w-full rounded-lg border bg-card px-3"
-            value={shop.defaultDeliveryArea}
+            value={draft.defaultDeliveryArea}
             onChange={(e) => {
-              updateShop({ defaultDeliveryArea: e.target.value });
+              setDraft((current) => ({ ...current, defaultDeliveryArea: e.target.value }));
               setSaved(false);
             }}
           >
-            {shop.deliveryAreas.map((area) => (
+            {draft.deliveryAreas.map((area) => (
               <option key={area}>{area}</option>
             ))}
           </select>
@@ -645,18 +725,19 @@ function SettingsPanel() {
         Delivery areas, separated by commas
         <Input
           className="mt-1.5"
-          value={shop.deliveryAreas.join(", ")}
+          value={draft.deliveryAreas.join(", ")}
           onChange={(e) => {
             const areas = e.target.value
               .split(",")
               .map((s) => s.trim())
               .filter(Boolean);
-            updateShop({
+            setDraft((current) => ({
+              ...current,
               deliveryAreas: areas,
-              defaultDeliveryArea: areas.includes(shop.defaultDeliveryArea)
-                ? shop.defaultDeliveryArea
+              defaultDeliveryArea: areas.includes(current.defaultDeliveryArea)
+                ? current.defaultDeliveryArea
                 : (areas[0] ?? ""),
-            });
+            }));
             setSaved(false);
           }}
         />
@@ -672,9 +753,10 @@ function SettingsPanel() {
           <label key={key} className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={shop.paymentOptions[key]}
+              checked={key === "card" ? false : draft.paymentOptions[key]}
+              disabled={key === "card"}
               onChange={(e) => {
-                updateShop({ paymentOptions: { ...shop.paymentOptions, [key]: e.target.checked } });
+                setDraft((current) => ({ ...current, paymentOptions: { ...current.paymentOptions, [key]: e.target.checked } }));
                 setSaved(false);
               }}
             />
@@ -682,10 +764,12 @@ function SettingsPanel() {
           </label>
         ))}
       </div>
-      <Button onClick={() => setSaved(true)}>Save settings</Button>
+      <p className="text-xs text-muted-foreground">Card processing will become available after a payment provider is configured.</p>
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      <Button disabled={saving} onClick={() => void submitSettings()}>{saving ? "Saving…" : "Save settings"}</Button>
       {saved && (
         <p role="status" className="text-sm text-primary">
-          Shop settings saved in this browser.
+          Shop settings saved to Convex.
         </p>
       )}
     </section>

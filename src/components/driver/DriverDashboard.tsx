@@ -1,6 +1,6 @@
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Check, ChevronDown, MapPin, Phone, Truck } from "lucide-react";
+import { Check, ChevronDown, MapPin, Phone, Truck } from "lucide-react";
 import { DeliveryMap } from "@/components/maps/DeliveryMap";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/app-store";
@@ -10,8 +10,10 @@ import type { Order } from "@/lib/types";
 
 const inProgress = new Set(["ready", "out_for_delivery"]);
 
-function orderSequence(orders: Order[], ids: string[]) {
+function orderSequence(orders: Order[], sequences: Record<string, string[]>) {
   return [...orders].sort((a, b) => {
+    if (a.storeId !== b.storeId) return (a.storeName ?? "").localeCompare(b.storeName ?? "");
+    const ids = sequences[`${a.storeId}::${a.driverUserId}`] ?? [];
     const aIndex = ids.indexOf(a.id);
     const bIndex = ids.indexOf(b.id);
     return (
@@ -24,18 +26,12 @@ function orderSequence(orders: Order[], ids: string[]) {
 export function DriverDashboard() {
   const store = useAppStore();
   const [mapOpen, setMapOpen] = useState(false);
-  const drivers = [
-    ...new Set(store.orders.map((order) => order.driver).filter(Boolean)),
-  ] as string[];
-  const options = drivers.length ? drivers : ["No driver assigned"];
-  const [driver, setDriver] = useState(options[0]!);
-  const activeDriver = options.includes(driver) ? driver : options[0]!;
-  const assigned = store.orders.filter(
-    (order) => order.driver === activeDriver && inProgress.has(order.status),
-  );
-  const routeIds = store.deliveryRouteSequence[activeDriver] ?? [];
-  const ordered = orderSequence(assigned, routeIds);
-  const areas = deliveryAreasForMap(store.shop.deliveryAreas);
+  const { signOut } = useAuthActions();
+  const assigned = store.orders.filter((order) => inProgress.has(order.status));
+  const activeDriver = assigned[0]?.driver ?? "Your deliveries";
+  const ordered = orderSequence(assigned, store.deliveryRouteSequence);
+  const assignedStoreIds = new Set(ordered.map((order) => order.storeId));
+  const areas = deliveryAreasForMap([...new Set(store.stores.filter((shop) => assignedStoreIds.has(shop.id)).flatMap((shop) => shop.deliveryAreas))]);
   const points = ordered.flatMap((order) => {
     const point = orderMapPoint(order);
     return point ? [{ ...point, label: order.number }] : [];
@@ -56,28 +52,8 @@ export function DriverDashboard() {
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">Today’s deliveries</h1>
           </div>
-          <Link
-            to="/demo-login"
-            aria-label="Back to demo views"
-            className="grid size-11 shrink-0 place-items-center rounded-xl border bg-card text-muted-foreground hover:text-primary"
-          >
-            <ArrowLeft className="size-5" />
-          </Link>
+          <Button variant="outline" className="min-h-11" onClick={() => void signOut()}>Sign out</Button>
         </header>
-
-        <label className="mb-5 block text-sm font-medium">
-          Driver preview
-          <select
-            className="mt-1.5 h-12 w-full rounded-xl border bg-card px-3 text-base"
-            value={activeDriver}
-            onChange={(event) => setDriver(event.target.value)}
-            disabled={!drivers.length}
-          >
-            {options.map((name) => (
-              <option key={name}>{name}</option>
-            ))}
-          </select>
-        </label>
 
         <section aria-labelledby="current-stop-heading">
           <div className="mb-3 flex items-center justify-between">
@@ -151,7 +127,7 @@ export function DriverDashboard() {
               </span>
               <h3 className="mt-3 font-semibold">You’re all caught up</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Ready orders assigned to {activeDriver} will appear here.
+                Ready orders assigned to you will appear here.
               </p>
             </div>
           )}
@@ -208,7 +184,7 @@ export function DriverDashboard() {
         </details>
 
         <p className="mt-5 text-center text-xs text-muted-foreground">
-          Driver demo · Status changes are saved in this browser.
+          Delivery updates sync with your store workspace.
         </p>
       </div>
     </main>

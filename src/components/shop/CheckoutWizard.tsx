@@ -1,18 +1,80 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useMutation } from "convex/react";
 import { Check, ChevronLeft, ChevronRight, MapPin, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LocationPicker } from "@/components/delivery/LocationPicker";
-import { useAppStore } from "@/lib/app-store";
+import { groupCartByStore, useAppStore } from "@/lib/app-store";
 import { formatM, unitLabel } from "@/lib/format";
-import type { DeliveryAddress, PaymentMethod } from "@/lib/types";
+import type { DeliveryAddress, Payment, PaymentMethod } from "@/lib/types";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 type Method = PaymentMethod;
+type CheckoutInput = {
+  checkoutId: string;
+  customer: { name: string; phone: string; email?: string };
+  address: DeliveryAddress;
+  payment: Payment;
+  couponCode?: string;
+};
+
 export function CheckoutWizard() {
+  return <ConvexCheckoutWizard />;
+}
+
+function ConvexCheckoutWizard() {
   const s = useAppStore();
+  const placeGuestOrder = useMutation(api.orders.placeGuestOrder);
+  return (
+    <CheckoutWizardForm
+      submitOrder={async ({ checkoutId, customer, address, payment, couponCode }) => {
+        const receipt = await placeGuestOrder({
+          checkoutId,
+          customer,
+          destination: {
+            area: address.area,
+            address: address.address || address.landmark || "",
+            ...(address.landmark === undefined ? {} : { landmark: address.landmark }),
+            ...(address.instructions === undefined ? {} : { instructions: address.instructions }),
+            ...(address.lat === undefined ? {} : { latitude: address.lat }),
+            ...(address.lng === undefined ? {} : { longitude: address.lng }),
+          },
+          paymentMethod: payment.method,
+          ...(couponCode ? { couponCode } : {}),
+          ...(payment.cashGiven === undefined ? {} : { cashGiven: payment.cashGiven }),
+          ...(payment.exactAmount === undefined ? {} : { exactAmount: payment.exactAmount }),
+          items: s.cart.map((item) => ({
+            productId: item.productId as Id<"products">,
+            quantity: item.quantity,
+          })),
+        });
+        s.recordConvexCheckout({
+          checkoutId: receipt.checkoutId,
+          customer,
+          address,
+          payment: { ...payment, changeRequired: receipt.changeRequired },
+          orders: receipt.orders.map((order) => ({
+            ...order,
+            orderId: String(order.orderId),
+            storeId: String(order.storeId),
+            items: order.items.map((item) => ({ ...item, productId: String(item.productId) })),
+          })),
+        });
+        return receipt.checkoutId;
+      }}
+    />
+  );
+}
+
+function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInput) => Promise<string> }) {
+  const s = useAppStore();
+  const groups = groupCartByStore(s.cart, s.stores.length ? s.stores : [s.shop]);
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
+  const checkoutId = useRef<string | undefined>(undefined);
+  const [submitting, setSubmitting] = useState(false);
   const [addressId, setAddressId] = useState(s.savedAddresses[0]?.id ?? "new");
   const [address, setAddress] = useState<DeliveryAddress>(
     s.savedAddresses[0] ?? { area: s.deliveryArea, address: "" },
@@ -22,9 +84,9 @@ export function CheckoutWizard() {
   const [phone, setPhone] = useState(s.account.phone);
   const [email, setEmail] = useState(s.account.email ?? "");
   const [method, setMethod] = useState<Method>(
-    s.shop.paymentOptions.cashOnDelivery
+    groups.length > 0 && groups.every((group) => group.store.paymentOptions.cashOnDelivery)
       ? "cash_on_delivery"
-      : s.shop.paymentOptions.mobileMoney
+      : groups.length > 0 && groups.every((group) => group.store.paymentOptions.mobileMoney)
         ? "mobile_money"
         : "card",
   );
@@ -32,7 +94,31 @@ export function CheckoutWizard() {
   const [cashGiven, setCashGiven] = useState("");
   const [saveAddress, setSaveAddress] = useState(false);
   const [error, setError] = useState("");
-  const total = s.cartSubtotal + s.shop.deliveryFee;
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<string>();
+  const deliveryTotal = groups.reduce((sum, group) => sum + group.store.deliveryFee, 0);
+  const activeCoupon = appliedCoupon?.trim().toUpperCase();
+  const today = new Date().toISOString().slice(0, 10);
+  const couponDiscount = activeCoupon
+    ? groups.reduce((sum, group) => {
+        const coupon = s.promotions.find((promotion) =>
+          promotion.storeId === group.store.id &&
+          promotion.type === "coupon" &&
+          promotion.active &&
+          promotion.code?.trim().toUpperCase() === activeCoupon &&
+          promotion.startDate <= today &&
+          promotion.endDate >= today,
+        );
+        return sum + (coupon ? Math.min(group.subtotal, coupon.value) : 0);
+      }, 0)
+    : 0;
+  const total = Math.max(0, Number((s.cartSubtotal + deliveryTotal - couponDiscount).toFixed(2)));
+  const minimumIssues = groups.filter((group) => group.subtotal < group.store.minimumOrder);
+  const deliveryAreas = groups.length
+    ? groups[0]!.store.deliveryAreas.filter((area) =>
+        groups.every((group) => group.store.deliveryAreas.includes(area)),
+      )
+    : s.shop.deliveryAreas;
   const available = s.cart.map((i) => ({
     item: i,
     product: s.products.find((p) => p.id === i.productId),
@@ -71,11 +157,13 @@ export function CheckoutWizard() {
     setLandmarkSearch("");
   };
   const allowed = (key: Method) =>
-    key === "mobile_money"
-      ? s.shop.paymentOptions.mobileMoney
+    key === "card"
+      ? false
+      : key === "mobile_money"
+      ? groups.every((group) => group.store.paymentOptions.mobileMoney)
       : key === "cash_on_delivery"
-        ? s.shop.paymentOptions.cashOnDelivery
-        : s.shop.paymentOptions.card;
+        ? groups.every((group) => group.store.paymentOptions.cashOnDelivery)
+        : groups.every((group) => group.store.paymentOptions.card);
   const continueStep = () => {
     setError("");
     if (step === 0) {
@@ -92,14 +180,14 @@ export function CheckoutWizard() {
         );
         return;
       }
-      if (!s.shop.deliveryAreas.includes(chosenAddress.area)) {
-        setError("That area is outside the current delivery service area.");
+      if (!deliveryAreas.includes(chosenAddress.area)) {
+        setError("At least one store in your cart does not deliver to that area.");
         return;
       }
     }
     if (step === 1) {
       if (!allowed(method)) {
-        setError("Choose a payment option offered by the shop.");
+        setError("Choose a payment option accepted by every store in your cart.");
         return;
       }
       if (method === "cash_on_delivery" && cashGiven && Number(cashGiven) < total) {
@@ -109,14 +197,18 @@ export function CheckoutWizard() {
     }
     setStep(Math.min(2, step + 1));
   };
-  const place = () => {
+  const place = async () => {
     setError("");
     if (s.cart.length === 0) {
       setError("Your cart is empty.");
       return;
     }
-    if (s.cartSubtotal < s.shop.minimumOrder) {
-      setError(`The minimum order is ${formatM(s.shop.minimumOrder)}.`);
+    if (minimumIssues.length) {
+      setError(
+        minimumIssues
+          .map(({ store, subtotal }) => `${store.name} requires ${formatM(store.minimumOrder)} minimum; add ${formatM(store.minimumOrder - subtotal)}.`)
+          .join(" "),
+      );
       return;
     }
     if (unavailable.length) {
@@ -131,20 +223,34 @@ export function CheckoutWizard() {
       status: method === "cash_on_delivery" ? ("unpaid" as const) : ("pending" as const),
       cashGiven: method === "cash_on_delivery" && cashGiven ? Number(cashGiven) : undefined,
       exactAmount: method === "cash_on_delivery" ? cashGiven === "" : undefined,
+      changeRequired:
+        method === "cash_on_delivery" && cashGiven
+          ? Number((Number(cashGiven) - total).toFixed(2))
+          : undefined,
     };
     const finalAddress = { ...chosenAddress };
-    const order = s.placeOrder({
-      customer: { name: name.trim(), phone: phone.trim(), email: email.trim() || undefined },
-      address: finalAddress,
-      payment,
-    });
-    if (saveAddress && (finalAddress.address.trim() || finalAddress.landmark?.trim()))
-      s.saveAddress({
-        ...finalAddress,
-        id: finalAddress.id ?? crypto.randomUUID(),
-        label: finalAddress.label || "Home",
+    setSubmitting(true);
+    try {
+      checkoutId.current ??= crypto.randomUUID();
+      const receiptId = await submitOrder({
+        checkoutId: checkoutId.current,
+        customer: { name: name.trim(), phone: phone.trim(), email: email.trim() || undefined },
+        address: finalAddress,
+        payment,
+        ...(activeCoupon ? { couponCode: activeCoupon } : {}),
       });
-    void navigate({ to: "/order-confirmation/$id", params: { id: order.id } });
+      if (saveAddress && s.account.signedIn && (finalAddress.address.trim() || finalAddress.landmark?.trim()))
+        s.saveAddress({
+          ...finalAddress,
+          id: finalAddress.id ?? crypto.randomUUID(),
+          label: finalAddress.label || "Home",
+        });
+      void navigate({ to: "/order-confirmation/$id", params: { id: receiptId } });
+    } catch (placeError) {
+      setError(placeError instanceof Error ? placeError.message : "The checkout could not be placed.");
+    } finally {
+      setSubmitting(false);
+    }
   };
   if (s.cart.length === 0)
     return (
@@ -305,7 +411,7 @@ export function CheckoutWizard() {
                 {addressId === "new" ? (
                   <LocationPicker
                     value={address}
-                    areas={s.shop.deliveryAreas}
+                    areas={deliveryAreas}
                     onChange={setDelivery}
                   />
                 ) : (
@@ -328,7 +434,7 @@ export function CheckoutWizard() {
                     </Button>
                   </div>
                 )}
-                <label className="mt-4 flex items-center gap-2 text-sm">
+                {s.account.signedIn && <label className="mt-4 flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     checked={saveAddress}
@@ -336,7 +442,7 @@ export function CheckoutWizard() {
                     className="size-4 accent-primary"
                   />
                   Save this address for next time
-                </label>
+                </label>}
               </section>
             </div>
           )}
@@ -344,7 +450,7 @@ export function CheckoutWizard() {
             <section>
               <h2 className="text-xl font-semibold">How would you like to pay?</h2>
               <p className="mb-4 mt-1 text-sm text-muted-foreground">
-                Select an option available from {s.shop.name}.
+                Select an option accepted by every store in your cart.
               </p>
               <div className="space-y-3">
                 {(
@@ -354,8 +460,8 @@ export function CheckoutWizard() {
                       "Cash on delivery",
                       "Pay your driver when the order arrives.",
                     ],
-                    ["mobile_money", "Mobile money", "Pay using EcoCash or M-Pesa."],
-                    ["card", "Card", "Card processing is not connected in this demo."],
+                    ["mobile_money", "Mobile money", "Arrange a separate transfer with each store."],
+                    ["card", "Card", "Card processing is not configured yet."],
                   ] as [Method, string, string][]
                 )
                   .filter(([key]) => allowed(key))
@@ -381,18 +487,35 @@ export function CheckoutWizard() {
                   ))}
               </div>
               {method === "mobile_money" && (
-                <label className="mt-4 block text-sm font-medium">
-                  Mobile money provider
-                  <select
-                    className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3"
-                    value={provider}
-                    onChange={(e) => setProvider(e.target.value)}
-                  >
-                    <option>EcoCash</option>
-                    <option>M-Pesa</option>
-                    <option>Other mobile money</option>
-                  </select>
-                </label>
+                <div className="mt-4 space-y-3">
+                  <label className="block text-sm font-medium">
+                    Mobile money provider
+                    <select
+                      className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3"
+                      value={provider}
+                      onChange={(e) => setProvider(e.target.value)}
+                    >
+                      <option>EcoCash</option>
+                      <option>M-Pesa</option>
+                      <option>Other mobile money</option>
+                    </select>
+                  </label>
+                  <div className="rounded-xl border bg-card p-4">
+                    <p className="text-sm font-semibold">Confirm transfer details with each store</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Payments are arranged outside REETAPELE. Ask each store for its correct transfer number before sending money.</p>
+                    <ul className="mt-3 divide-y">
+                      {groups.map((group) => (
+                        <li key={group.store.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                          <span className="font-medium">{group.store.name}</span>
+                          <span className="flex gap-3">
+                            <a className="font-semibold text-primary underline" href={`tel:${group.store.phone.replace(/\s/g, "")}`}>Call</a>
+                            {group.store.whatsapp && <a className="font-semibold text-primary underline" href={`https://wa.me/${group.store.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp</a>}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               )}
               {method === "cash_on_delivery" && (
                 <>
@@ -417,16 +540,38 @@ export function CheckoutWizard() {
               )}
               <p className="mt-4 rounded-xl bg-muted p-3 text-sm text-muted-foreground">
                 {method === "mobile_money"
-                  ? "Payment is marked pending. This demo does not initiate a mobile money transfer."
+                  ? "Payment stays pending until the store confirms your mobile money transfer."
                   : method === "cash_on_delivery"
                     ? "Your driver collects payment at delivery. No online payment is taken."
-                    : "Card payments are not connected; this demo records the selection as pending."}
+                    : "Card payments are not configured; this order will remain pending until the store confirms payment."}
               </p>
             </section>
           )}
           {step === 2 && (
             <section>
               <h2 className="text-xl font-semibold">Check your order</h2>
+              <div className="mt-4 rounded-2xl border bg-card p-4">
+                <label htmlFor="checkout-coupon" className="text-sm font-semibold">Store coupon code</label>
+                <div className="mt-2 flex gap-2">
+                  <Input id="checkout-coupon" value={couponInput} onChange={(event) => setCouponInput(event.target.value)} placeholder="Enter a store coupon" autoComplete="off" />
+                  <Button type="button" variant="outline" onClick={() => {
+                    const code = couponInput.trim().toUpperCase();
+                    const matches = groups.some((group) => s.promotions.some((promotion) =>
+                      promotion.storeId === group.store.id && promotion.type === "coupon" && promotion.active &&
+                      promotion.code?.trim().toUpperCase() === code && promotion.startDate <= today && promotion.endDate >= today,
+                    ));
+                    if (!code || !matches) {
+                      setAppliedCoupon(undefined);
+                      setError("That coupon is invalid, expired, or not available for products in your cart.");
+                      return;
+                    }
+                    setError("");
+                    setAppliedCoupon(code);
+                  }}>Apply</Button>
+                  {appliedCoupon && <Button type="button" variant="ghost" onClick={() => { setAppliedCoupon(undefined); setCouponInput(""); }}>Remove</Button>}
+                </div>
+                {appliedCoupon && <p className="mt-2 text-sm text-primary">{appliedCoupon} applied · You save {formatM(couponDiscount)} on eligible store orders.</p>}
+              </div>
               <div className="mt-4 rounded-2xl border bg-card p-5">
                 <h3 className="font-semibold">Delivery</h3>
                 <p className="mt-1">
@@ -499,14 +644,19 @@ export function CheckoutWizard() {
                 <ChevronRight className="size-4" />
               </Button>
             ) : (
-              <Button onClick={place}>Place order · {formatM(total)}</Button>
+              <Button onClick={() => void place()} disabled={submitting}>
+                {submitting ? "Placing order…" : `Place order · ${formatM(total)}`}
+              </Button>
             )}
           </div>
         </section>
         <aside className="h-fit rounded-2xl border bg-card p-5 lg:sticky lg:top-6">
-          <h2 className="text-lg font-semibold">Your groceries</h2>
-          <ul className="mt-4 divide-y">
-            {s.cart.map((item) => (
+          <h2 className="text-lg font-semibold">Your marketplace checkout</h2>
+          {groups.map((group) => (
+            <section key={group.store.id} className="mt-4">
+              <h3 className="text-sm font-semibold">{group.store.name}</h3>
+              <ul className="divide-y">
+            {group.items.map((item) => (
               <li key={item.productId} className="flex justify-between gap-3 py-3 text-sm">
                 <span>
                   {item.quantity} × {item.name}
@@ -518,24 +668,31 @@ export function CheckoutWizard() {
               </li>
             ))}
           </ul>
+              <div className="flex justify-between border-t pt-2 text-xs text-muted-foreground">
+                <span>Delivery from {group.store.name}</span>
+                <span>{formatM(group.store.deliveryFee)}</span>
+              </div>
+            </section>
+          ))}
           <div className="space-y-2 border-t pt-4 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Subtotal</span>
               <span>{formatM(s.cartSubtotal)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Delivery</span>
-              <span>{formatM(s.shop.deliveryFee)}</span>
+              <span className="text-muted-foreground">Total delivery</span>
+              <span>{formatM(deliveryTotal)}</span>
             </div>
+            {couponDiscount > 0 && <div className="flex justify-between text-primary"><span>Coupon savings</span><span>−{formatM(couponDiscount)}</span></div>}
             <div className="flex justify-between border-t pt-3 text-base font-bold">
               <span>Total</span>
               <span>{formatM(total)}</span>
             </div>
           </div>
           <p className="mt-4 rounded-xl bg-muted p-3 text-xs text-muted-foreground">
-            {s.cartSubtotal < s.shop.minimumOrder
-              ? `Minimum order is ${formatM(s.shop.minimumOrder)}.`
-              : `Delivery to ${chosenAddress.area || s.deliveryArea}.`}
+            {minimumIssues.length
+              ? minimumIssues.map((group) => `${group.store.name}: ${formatM(group.store.minimumOrder)} minimum`).join(" · ")
+              : `Delivery to ${chosenAddress.area || s.deliveryArea}. ${groups.length} store${groups.length === 1 ? "" : "s"} will fulfill this checkout.`}
           </p>
         </aside>
       </div>

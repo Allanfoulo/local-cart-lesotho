@@ -6,7 +6,7 @@ Own customer storefront, checkout, account, and order-tracking experiences.
 
 ## Ownership
 
-Shop components present customer workflows and use the shared app store for cart, order, and delivery state.
+Shop components present customer workflows. The cart and harmless presentation preferences may stay in the shared app store; orders, customer accounts, addresses, favourites, and order state come from Convex.
 
 ## Local Contracts
 
@@ -19,7 +19,7 @@ Shop components present customer workflows and use the shared app store for cart
 
 ## Work Guidance
 
-`CustomerAccount.tsx` owns the section-first profile, address, order, favourite, and preference views. `CheckoutWizard.tsx` owns delivery, payment, and review steps. Keep checkout and post-checkout tracking accessible on mobile; reuse shared map and status components.
+`CustomerAccount.tsx` owns the section-first profile, address, order, favourite, and preference views. `CheckoutWizard.tsx` owns delivery, payment, and review steps. Keep checkout and post-checkout tracking accessible on mobile; use the reactive account/order queries and authorized mutations; reuse shared map and status components.
 
 ## Verification
 

@@ -6,7 +6,7 @@ Own the TanStack Start and React application, its route structure, UI, and clien
 
 ## Ownership
 
-Application code under `src/`. Product-facing behavior is primarily composed in `components/`; route files bind URLs to those experiences; `lib/` owns shared types and domain helpers.
+Application code under `src/`. Product-facing behavior is primarily composed in `components/`; route files bind URLs to those experiences; `domain/` owns framework-independent business rules; `lib/` owns shared app types, state, and helpers.
 
 ## Local Contracts
 
@@ -24,6 +24,8 @@ Prefer existing components and utilities; add shared behavior to `lib/` only whe
 Available checks are `npm run typecheck`, `npm run lint`, and `npm run build`. Run only checks requested or needed by the task.
 
 ## Child DOX Index
+
+- [domain/AGENTS.md](domain/AGENTS.md) - framework-independent business concepts and rules.
 
 - [components/AGENTS.md](components/AGENTS.md) — reusable and workflow-specific UI.
 - [lib/AGENTS.md](lib/AGENTS.md) — shared types, state, and domain helpers.

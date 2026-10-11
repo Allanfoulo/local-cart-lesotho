@@ -25,18 +25,19 @@ export const Route = createFileRoute("/_store/")({
 });
 
 function HomePage() {
-  const { shop, categories, products } = useAppStore();
+  const { shop, stores, categories, products } = useAppStore();
   const popular = filterProducts(products, { sort: "popular" }).slice(0, 8);
   const specials = products.filter((p) => p.promoPrice).slice(0, 4);
+  const uniqueCategories = [...new Map(categories.filter((category) => category.enabled).map((category) => [category.slug, category])).values()];
 
   return (
     <div className="space-y-8">
       <section className="relative overflow-hidden rounded-3xl bg-primary-soft">
         <div className="grid items-center md:grid-cols-2">
           <div className="p-6 md:p-10">
-            <p className="text-sm font-semibold text-primary">Your local grocer, online</p>
+            <p className="text-sm font-semibold text-primary">Shop local stores in one place</p>
             <h1 className="mt-2 text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">
-              Fresh groceries, delivered to your door.
+              Local favourites, delivered to your door.
             </h1>
             <p className="mt-3 max-w-md text-muted-foreground">
               Order before 4pm for same-day delivery across Maseru. Pay with mobile money or cash.
@@ -59,6 +60,27 @@ function HomePage() {
         </div>
       </section>
 
+      <section>
+        <SectionHead title="Local stores" />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {stores.map((store) => (
+            <Link
+              key={store.id}
+              to="/shop"
+              search={{ store: store.slug }}
+              className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary-soft text-2xl" aria-hidden>🏬</span>
+              <span className="min-w-0">
+                <span className="block truncate font-bold">{store.name}</span>
+                <span className="block truncate text-sm text-muted-foreground">{store.tagline}</span>
+                <span className="mt-1 block text-xs text-muted-foreground">{formatMShort(store.deliveryFee)} delivery · {store.deliveryAreas.length} delivery areas</span>
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       <section className="grid grid-cols-3 gap-2 text-center text-xs md:text-sm">
         <Perk icon={<Truck className="size-5" />} title={`${formatMShort(shop.deliveryFee)} delivery`} />
         <Perk icon={<Clock className="size-5" />} title="Same-day" />
@@ -68,8 +90,7 @@ function HomePage() {
       <section>
         <SectionHead title="Shop by category" />
         <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 md:mx-0 md:grid md:grid-cols-8 md:px-0">
-          {categories
-            .filter((c) => c.enabled)
+          {uniqueCategories
             .sort((a, b) => a.order - b.order)
             .map((c) => (
               <Link

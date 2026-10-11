@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { AppStoreProvider } from "@/lib/app-store";
+import { ConvexWorkspaceSync } from "@/components/auth/ConvexWorkspaceSync";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
@@ -126,6 +127,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AppStoreProvider>
+        <ConvexWorkspaceSync />
         <Outlet />
         <Toaster position="top-center" richColors />
       </AppStoreProvider>

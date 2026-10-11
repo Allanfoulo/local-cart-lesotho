@@ -10,6 +10,9 @@ import type {
 
 export const seedShop: Shop = {
   id: "shop_reetapele",
+  slug: "reetapele",
+  enabled: true,
+  order: 1,
   name: "REETAPELE",
   tagline: "Your Local Grocer • Maseru",
   phone: "+266 5888 1234",
@@ -33,14 +36,14 @@ export const seedShop: Shop = {
 };
 
 export const seedCategories: Category[] = [
-  { id: "cat_produce", slug: "fresh-produce", name: "Fresh Produce", emoji: "🥬", accent: "leaf", enabled: true, order: 1 },
-  { id: "cat_groceries", slug: "groceries", name: "Groceries", emoji: "🛒", accent: "wheat", enabled: true, order: 2 },
-  { id: "cat_drinks", slug: "drinks", name: "Drinks", emoji: "🥤", accent: "sky", enabled: true, order: 3 },
-  { id: "cat_snacks", slug: "snacks", name: "Snacks", emoji: "🍿", accent: "sun", enabled: true, order: 4 },
-  { id: "cat_household", slug: "household", name: "Household", emoji: "🧻", accent: "clay", enabled: true, order: 5 },
-  { id: "cat_personal", slug: "personal-care", name: "Personal Care", emoji: "🧼", accent: "rose", enabled: true, order: 6 },
-  { id: "cat_bakery", slug: "bread-bakery", name: "Bread & Bakery", emoji: "🍞", accent: "wheat", enabled: true, order: 7 },
-  { id: "cat_specials", slug: "specials", name: "Specials", emoji: "🏷️", accent: "leaf", enabled: true, order: 8 },
+  { id: "cat_produce", storeId: "shop_reetapele", slug: "fresh-produce", name: "Fresh Produce", emoji: "🥬", accent: "leaf", enabled: true, order: 1 },
+  { id: "cat_groceries", storeId: "shop_reetapele", slug: "groceries", name: "Groceries", emoji: "🛒", accent: "wheat", enabled: true, order: 2 },
+  { id: "cat_drinks", storeId: "shop_reetapele", slug: "drinks", name: "Drinks", emoji: "🥤", accent: "sky", enabled: true, order: 3 },
+  { id: "cat_snacks", storeId: "shop_reetapele", slug: "snacks", name: "Snacks", emoji: "🍿", accent: "sun", enabled: true, order: 4 },
+  { id: "cat_household", storeId: "shop_reetapele", slug: "household", name: "Household", emoji: "🧻", accent: "clay", enabled: true, order: 5 },
+  { id: "cat_personal", storeId: "shop_reetapele", slug: "personal-care", name: "Personal Care", emoji: "🧼", accent: "rose", enabled: true, order: 6 },
+  { id: "cat_bakery", storeId: "shop_reetapele", slug: "bread-bakery", name: "Bread & Bakery", emoji: "🍞", accent: "wheat", enabled: true, order: 7 },
+  { id: "cat_specials", storeId: "shop_reetapele", slug: "specials", name: "Specials", emoji: "🏷️", accent: "leaf", enabled: true, order: 8 },
 ];
 
 let n = 0;
@@ -58,6 +61,8 @@ function p(
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   return {
     id: `prd_${n}`,
+    storeId: "shop_reetapele",
+    storeName: seedShop.name,
     slug,
     name,
     description: `${name} from REETAPELE. Locally sourced where possible and checked by our team before it reaches your door.`,
@@ -182,6 +187,8 @@ function orderItem(product: Product, quantity: number) {
   return {
     id: `oi_${product.id}_${quantity}`,
     productId: product.id,
+    storeId: product.storeId,
+    storeName: product.storeName,
     name: product.name,
     unit: product.unit,
     unitPrice,
