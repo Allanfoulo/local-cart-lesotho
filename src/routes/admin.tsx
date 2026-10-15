@@ -1,12 +1,28 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
+import { StaffWorkspace } from "@/components/admin/StaffWorkspace";
+import { RequireMembership } from "@/components/auth/RequireMembership";
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({ meta: [{ title: "Mabote Fresh — Staff" }, { name: "description", content: "Staff area." }, { property: "og:title", content: "Mabote Fresh — Staff" }, { property: "og:description", content: "Staff area." }] }),
-  component: () => (
-    <div className="mx-auto max-w-md py-16 text-center">
-      <h1 className="text-2xl font-bold">Staff area</h1>
-      <p className="mt-2 text-muted-foreground">The shop management screens are coming soon.</p>
-      <Link to="/" className="mt-4 inline-block font-semibold text-primary">Back to shop</Link>
-    </div>
-  ),
+  head: () => ({
+    meta: [
+      { title: "REETAPELE | Staff workspace" },
+      {
+        name: "description",
+        content:
+          "Manage local store orders, customers, reports, stock, promotions, and delivery places.",
+      },
+    ],
+  }),
+  component: AdminRoute,
 });
+
+function AdminRoute() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  return pathname === "/admin/sign-in" ? (
+    <Outlet />
+  ) : (
+    <RequireMembership roles={["store_owner", "store_manager"]}>
+      <StaffWorkspace />
+    </RequireMembership>
+  );
+}

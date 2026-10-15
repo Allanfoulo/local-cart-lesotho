@@ -2,7 +2,8 @@
  * Delivery location input.
  *
  * This is the single boundary for how a customer describes where to deliver.
- * It emits a DeliveryAddress (area, address, landmark, optional lat/lng).
+ * It edits a DeliveryAddress with area, free-text descriptions, optional pins,
+ * and an optional ID for a selected staff-curated place.
  * A future CesiumJS / 3D map picker can replace the "Pin my location" block
  * below and simply call onChange with lat/lng — nothing else needs to change.
  */
@@ -39,7 +40,14 @@ export function LocationPicker({
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        set({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        set({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          landmarkId: undefined,
+          ...(value.landmarkId
+            ? { address: "Customer-confirmed location", landmark: undefined }
+            : {}),
+        });
         setLocating(false);
       },
       () => setLocating(false),
@@ -65,11 +73,11 @@ export function LocationPicker({
         </Select>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="address">House / street</Label>
+        <Label htmlFor="address">Delivery description or house / street</Label>
         <Input
           id="address"
           className="h-11 rounded-xl"
-          placeholder="e.g. 1234 Ha-Mabote"
+          placeholder="e.g. by Omega, behind the old supermarket"
           value={value.address}
           onChange={(e) => set({ address: e.target.value })}
         />
@@ -97,15 +105,22 @@ export function LocationPicker({
       <div className="flex items-center justify-between rounded-xl border border-dashed border-border bg-muted/40 p-3">
         <div className="flex items-center gap-2 text-sm">
           <MapPin className="size-4 text-primary" />
-          {value.lat != null ? (
-            <span>
-              Location pinned ({value.lat.toFixed(4)}, {value.lng?.toFixed(4)})
-            </span>
+          {value.landmarkId ? (
+            <span>Verified place pin selected: {value.landmark}</span>
+          ) : value.lat != null ? (
+            <span>Your location pin is saved with the order.</span>
           ) : (
             <span className="text-muted-foreground">Help the driver find you faster</span>
           )}
         </div>
-        <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={pin} disabled={locating}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="rounded-full"
+          onClick={pin}
+          disabled={locating}
+        >
           <LocateFixed className="size-4" /> {locating ? "Finding…" : "Pin my location"}
         </Button>
       </div>

@@ -1,5 +1,3 @@
-import { Mountain } from "lucide-react";
-
 import { cn } from "@/lib/utils";
 
 export function Logo({
@@ -15,9 +13,12 @@ export function Logo({
 }) {
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      <span className="flex size-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
-        <Mountain className="size-5" />
-      </span>
+      <img
+        src="/brand/reetapele/pwa/reetapele-192.svg"
+        alt=""
+        aria-hidden="true"
+        className="size-9 shrink-0 rounded-xl object-contain"
+      />
       <span className="leading-tight">
         <span className="block text-base font-bold tracking-tight">{name}</span>
         {!compact && tagline ? (

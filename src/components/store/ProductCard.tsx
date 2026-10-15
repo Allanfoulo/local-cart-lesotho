@@ -11,14 +11,15 @@ import { StockBadge } from "./StockBadge";
 import { toast } from "sonner";
 
 export function ProductCard({ product }: { product: Product }) {
-  const { cart, addToCart, setCartQuantity } = useAppStore();
+  const { cart, stores, addToCart, setCartQuantity } = useAppStore();
+  const store = stores.find((candidate) => candidate.id === product.storeId);
   const inCart = cart.find((i) => i.productId === product.id);
   const status = stockStatus(product);
   const step = product.soldByWeight ? 0.5 : 1;
 
   return (
     <div className="group flex flex-col rounded-2xl border border-border bg-card p-2.5 shadow-sm transition hover:shadow-md">
-      <Link to="/products/$slug" params={{ slug: product.slug }} className="relative block">
+      <Link to="/products/$slug" params={{ slug: product.slug }} search={{ store: store?.slug }} className="relative block">
         <ProductTile emoji={product.emoji} name={product.name} />
         {product.promoPrice ? (
           <span className="absolute left-2 top-2 rounded-full bg-promo px-2 py-0.5 text-[10px] font-bold uppercase text-promo-foreground">
@@ -30,10 +31,12 @@ export function ProductCard({ product }: { product: Product }) {
         <Link
           to="/products/$slug"
           params={{ slug: product.slug }}
+          search={{ store: store?.slug }}
           className="line-clamp-2 text-sm font-semibold leading-snug"
         >
           {product.name}
         </Link>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">{product.storeName}</p>
         <div className="mt-1 flex items-baseline gap-1.5">
           <span className="font-bold text-primary">{formatMShort(effectivePrice(product))}</span>
           <span className="text-xs text-muted-foreground">{unitLabel(product.unit)}</span>

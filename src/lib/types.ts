@@ -1,4 +1,4 @@
-// Domain models for the Mabote Fresh storefront.
+// Domain models for the REETAPELE storefront.
 // These are intentionally backend-agnostic so they can be swapped for
 // Convex documents later (each entity has a stable string `id`).
 
@@ -8,6 +8,9 @@ export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
 
 export interface Shop {
   id: string;
+  slug: string;
+  enabled: boolean;
+  order: number;
   name: string;
   tagline: string;
   phone: string;
@@ -25,6 +28,7 @@ export interface Shop {
 
 export interface Category {
   id: string;
+  storeId: string;
   slug: string;
   name: string;
   emoji: string;
@@ -41,6 +45,8 @@ export interface ProductVariant {
 
 export interface Product {
   id: string;
+  storeId: string;
+  storeName: string;
   slug: string;
   name: string;
   description: string;
@@ -63,6 +69,8 @@ export interface Product {
 export interface CartItem {
   id: string;
   productId: string;
+  storeId: string;
+  storeName: string;
   name: string;
   unit: PricingUnit;
   unitPrice: number;
@@ -79,8 +87,20 @@ export interface DeliveryAddress {
   address: string;
   landmark?: string;
   instructions?: string;
+  landmarkId?: string;
   lat?: number;
   lng?: number;
+}
+
+/** A locally verified, staff-curated place name that can help identify a delivery destination. */
+export interface DeliveryLandmark {
+  id: string;
+  storeId?: string;
+  name: string;
+  aliases: string[];
+  area: string;
+  lat: number;
+  lng: number;
 }
 
 export type PaymentMethod = "mobile_money" | "cash_on_delivery" | "card";
@@ -101,6 +121,7 @@ export type OrderStatus =
   | "ready"
   | "out_for_delivery"
   | "delivered"
+  | "rejected"
   | "cancelled";
 
 export interface OrderEvent {
@@ -115,8 +136,11 @@ export interface OrderItem extends CartItem {
 
 export interface Order {
   id: string;
+  checkoutId?: string;
+  storeId?: string;
+  storeName?: string;
   number: string;
-  customer: { name: string; phone: string; email?: string };
+  customer: { customerId?: string; name: string; phone: string; email?: string };
   items: OrderItem[];
   address: DeliveryAddress;
   payment: Payment;
@@ -128,6 +152,9 @@ export interface Order {
   createdAt: string;
   estimatedDelivery: string;
   driver?: string;
+  driverUserId?: string;
+  assignedStaff?: string;
+  assignedStaffUserId?: string;
   timeline: OrderEvent[];
 }
 
@@ -143,6 +170,7 @@ export interface Customer {
 
 export interface Promotion {
   id: string;
+  storeId?: string;
   name: string;
   type: "percentage" | "fixed" | "product_price" | "coupon";
   value: number;
