@@ -125,7 +125,7 @@ export function StoresManagement() {
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">/{store.slug} · {store.ownerEmail ? `Owner: ${store.ownerEmail}` : store.ownerInvitationEmail ? `Owner invited: ${store.ownerInvitationEmail}` : "Owner not appointed"}</p>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Setup: {store.setup.hasOwner ? "owner assigned" : "owner needed"} · {store.setup.hasSettings ? "delivery settings ready" : "delivery settings missing"} · {store.setup.hasActiveCategory ? "category ready" : "category needed"} · {store.setup.activeProductCount} available products
+                  Setup: {store.setup.hasOwner ? "owner assigned" : "owner needed"} · {store.setup.deliverySettingsReady ? "delivery settings ready" : "delivery area and default needed"} · {store.setup.hasActiveCategory ? "category ready" : "category needed"} · {store.setup.activeProductCount} available products
                 </p>
               </div>
               <Button
@@ -136,6 +136,11 @@ export function StoresManagement() {
               >
                 {changingStore === String(store.id) ? "Saving…" : store.enabled ? "Pause listing" : "Publish store"}
               </Button>
+              {!store.enabled && !store.setup.readyToPublish && (
+                <p className="max-w-xs text-xs text-muted-foreground">
+                  Publishing becomes available after the owner accepts the invitation, delivery settings are complete, and an active category has an available product.
+                </p>
+              )}
             </article>
           ))}
           {stores?.length === 0 && <p className="p-5 text-sm text-muted-foreground">No stores are configured yet. Create the first store above.</p>}

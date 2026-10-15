@@ -275,16 +275,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const replaceMarketplaceCatalog = useCallback(
     (catalog: { stores: Shop[]; categories: Category[]; products: Product[]; promotions?: Promotion[] }) => {
       patch((prev) => {
-        if (!catalog.stores.length) return prev;
         const selectedArea = catalog.stores.some((store) =>
           store.deliveryAreas.includes(prev.deliveryArea),
         )
           ? prev.deliveryArea
-          : catalog.stores[0]!.defaultDeliveryArea;
+          : catalog.stores[0]?.defaultDeliveryArea ?? prev.deliveryArea;
         const productsBySlug = new Map(catalog.products.map((product) => [product.slug, product]));
         return {
           ...prev,
-          shop: catalog.stores[0]!,
+          shop: catalog.stores[0] ?? prev.shop,
           stores: catalog.stores,
           categories: catalog.categories,
           products: catalog.products,

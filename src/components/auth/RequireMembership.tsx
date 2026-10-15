@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
@@ -8,6 +8,7 @@ type Role = "superadmin" | "store_owner" | "store_manager" | "order_staff" | "ca
 export function RequireMembership({ roles, children }: { roles: Role[]; children: ReactNode }) {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const access = useQuery(api.memberships.currentAccess, {});
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   if (isLoading || access === undefined) {
     return <Status>Checking your account access…</Status>;
@@ -16,7 +17,11 @@ export function RequireMembership({ roles, children }: { roles: Role[]; children
     return (
       <Status>
         <p>Sign in with an account that has access to this workspace.</p>
-        <Link className="mt-3 inline-block font-semibold text-primary hover:underline" to="/admin/sign-in">
+        <Link
+          className="mt-3 inline-block font-semibold text-primary hover:underline"
+          to="/sign-in"
+          search={{ returnTo: pathname }}
+        >
           Sign in
         </Link>
       </Status>

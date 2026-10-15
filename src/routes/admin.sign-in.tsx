@@ -3,10 +3,15 @@ import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMutation, useQuery } from "convex/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
+import { resolveWorkspaceDestination, type WorkspaceRole } from "@/lib/auth/workspace-destination";
+import { WorkspaceChoice, WorkspaceVerificationError } from "@/components/auth/WorkspaceChoice";
 
 export const Route = createFileRoute("/admin/sign-in")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    returnTo: typeof search["returnTo"] === "string" ? search["returnTo"] : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "REETAPELE | Super admin sign in" },
@@ -17,9 +22,12 @@ export const Route = createFileRoute("/admin/sign-in")({
 });
 
 function AdminSignIn() {
+  const { returnTo } = Route.useSearch();
+  const navigate = useNavigate();
   const { signIn, signOut } = useAuthActions();
   const { isLoading, isAuthenticated } = useConvexAuth();
   const bootstrap = useQuery(api.memberships.bootstrapStatus);
+  const access = useQuery(api.memberships.currentAccess, {});
   const claimInitialAdmin = useMutation(api.memberships.claimInitialSuperadmin);
   const [email, setEmail] = useState("");
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
@@ -30,6 +38,30 @@ function AdminSignIn() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [claimAttempted, setClaimAttempted] = useState(false);
+  const [showWorkspaceChoice, setShowWorkspaceChoice] = useState(false);
+  const [workspaceVerificationFailed, setWorkspaceVerificationFailed] = useState(false);
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || bootstrap === undefined || access === undefined) return;
+    if (!bootstrap.isSuperadmin && bootstrap.initialSetupAvailable) return;
+    if (access === null) {
+      setWorkspaceVerificationFailed(true);
+      return;
+    }
+    setWorkspaceVerificationFailed(false);
+    if (access.memberships.length > 1) {
+      setShowWorkspaceChoice(true);
+      return;
+    }
+    setShowWorkspaceChoice(false);
+
+    const destination = resolveWorkspaceDestination({
+      roles: access.memberships.map((membership) => membership.role as WorkspaceRole),
+      isSuperadmin: bootstrap.isSuperadmin,
+      requestedPath: returnTo,
+    });
+    void navigate({ to: destination });
+  }, [access, bootstrap, isAuthenticated, isLoading, navigate, returnTo]);
 
   useEffect(() => {
     if (
@@ -127,6 +159,28 @@ function AdminSignIn() {
 
   const isSuperadmin = bootstrap?.isSuperadmin ?? false;
   const setupAvailable = bootstrap?.initialSetupAvailable ?? false;
+
+  if (workspaceVerificationFailed) {
+    return <WorkspaceVerificationError onSignOut={() => void signOut()} />;
+  }
+
+  if (showWorkspaceChoice && access) {
+    return (
+      <WorkspaceChoice
+        email={access.user?.email}
+        onAccount={() => void navigate({ to: "/account" })}
+        onStaff={() =>
+          void navigate({
+            to: resolveWorkspaceDestination({
+              roles: access.memberships.map((membership) => membership.role as WorkspaceRole),
+              isSuperadmin: bootstrap?.isSuperadmin,
+              requestedPath: returnTo,
+            }),
+          })
+        }
+      />
+    );
+  }
 
   return (
     <main className="grid min-h-screen place-items-center bg-muted/30 px-4 py-10">

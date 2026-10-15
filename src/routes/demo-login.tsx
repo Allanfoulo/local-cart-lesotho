@@ -58,7 +58,7 @@ function DemoRoleSelector() {
             REETAPELE
           </Link>
           <nav className="flex items-center gap-4">
-            <Link to="/admin/sign-in" className="text-sm font-medium text-primary hover:underline">
+            <Link to="/admin/sign-in" search={{ returnTo: undefined }} className="text-sm font-medium text-primary hover:underline">
               Super admin sign in
             </Link>
             <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-primary">

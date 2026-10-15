@@ -12,7 +12,7 @@ Make the marketplace's customer and fulfillment walkthrough repeatable against a
 - Require an explicit Deploy Preview URL and local environment variables for existing customer, store manager, and driver credentials. Keep credentials out of source control and test output.
 - Verify the public shopping journey through product selection, checkout, and confirmation; then verify the resulting order progresses through staff preparation, driver assignment, dispatch, and delivery.
 - Verify authenticated customer account access and role-scoped workspace access as part of those journeys.
-- Capture traces and screenshots on failure so a failed walkthrough is diagnosable.
+- Capture screenshots on failure with form fields masked. Do not capture network traces because authenticated requests can contain credentials or session tokens.
 
 ## Target and safety boundaries
 
@@ -37,6 +37,7 @@ Tests should use accessible labels and visible outcome assertions. Select produc
 - `E2E_BASE_URL` identifies the current Deploy Preview.
 - `E2E_EXPECTED_CONVEX_URL` identifies the development Convex cloud endpoint expected in that preview.
 - `E2E_CUSTOMER_EMAIL` / `E2E_CUSTOMER_PASSWORD`, `E2E_MANAGER_EMAIL` / `E2E_MANAGER_PASSWORD`, and `E2E_DRIVER_EMAIL` / `E2E_DRIVER_PASSWORD` provide existing test-account credentials through the local environment or CI secret store.
+- `E2E_DRIVER_NAME` identifies the driver's display name in the dispatch assignment list.
 - The runner fails before mutation if required configuration is absent, the base URL is not a Deploy Preview host, or Convex traffic does not match the expected development endpoint.
 - The documented command is `pnpm test:e2e`; it requires Playwright Chromium to be installed once in the runner environment.
 

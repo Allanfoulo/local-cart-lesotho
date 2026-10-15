@@ -1,15 +1,18 @@
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { resolveWorkspaceDestination, type WorkspaceRole } from "@/lib/auth/workspace-destination";
+import { WorkspaceChoice, WorkspaceVerificationError } from "@/components/auth/WorkspaceChoice";
 
-export function PublicAuthPage({ inviteToken }: { inviteToken?: string }) {
+export function PublicAuthPage({ inviteToken, returnTo }: { inviteToken?: string; returnTo?: string }) {
   const { signIn, signOut } = useAuthActions();
   const { isLoading, isAuthenticated } = useConvexAuth();
   const acceptInvite = useMutation(api.invitations.accept);
+  const access = useQuery(api.memberships.currentAccess, {});
   const navigate = useNavigate();
   const acceptedOnce = useRef(false);
   const [email, setEmail] = useState("");
@@ -21,25 +24,50 @@ export function PublicAuthPage({ inviteToken }: { inviteToken?: string }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [inviteAccepted, setInviteAccepted] = useState(false);
+  const [showWorkspaceChoice, setShowWorkspaceChoice] = useState(false);
+  const [workspaceVerificationFailed, setWorkspaceVerificationFailed] = useState(false);
+
+  useEffect(() => {
+    if (inviteToken || isLoading || !isAuthenticated || access === undefined) return;
+    if (access === null) {
+      setWorkspaceVerificationFailed(true);
+      return;
+    }
+    setWorkspaceVerificationFailed(false);
+    if (access.memberships.length > 1) {
+      setShowWorkspaceChoice(true);
+      return;
+    }
+    setShowWorkspaceChoice(false);
+    const destination = resolveWorkspaceDestination({
+      roles: access.memberships.map((membership) => membership.role as WorkspaceRole),
+      isSuperadmin: access.isSuperadmin,
+      requestedPath: returnTo,
+    });
+    void navigate({ to: destination });
+  }, [access, inviteToken, isAuthenticated, isLoading, navigate, returnTo]);
 
   useEffect(() => {
     if (!inviteToken || !isAuthenticated || inviteAccepted || acceptedOnce.current) return;
     acceptedOnce.current = true;
     setBusy(true);
     void acceptInvite({ token: inviteToken })
-      .then((membership) => {
+      .then(async (membership) => {
         if ("expired" in membership) {
           throw new Error("This invitation has expired. Ask the store owner to send another.");
         }
         setInviteAccepted(true);
         setMessage(`Invitation accepted. Your ${membership.role.replaceAll("_", " ")} access is active.`);
+        await navigate({
+          to: resolveWorkspaceDestination({ roles: [membership.role as WorkspaceRole] }),
+        });
       })
       .catch((reason: unknown) => {
         acceptedOnce.current = false;
         setError(reason instanceof Error ? reason.message : "Could not accept this invitation.");
       })
       .finally(() => setBusy(false));
-  }, [acceptInvite, inviteAccepted, inviteToken, isAuthenticated]);
+  }, [acceptInvite, inviteAccepted, inviteToken, isAuthenticated, navigate]);
 
   async function submitCredentials(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,8 +81,6 @@ export function PublicAuthPage({ inviteToken }: { inviteToken?: string }) {
       if (!result.signingIn) {
         setVerificationPending(true);
         setMessage("Check your email for a verification code, then enter it below.");
-      } else if (!inviteToken) {
-        await navigate({ to: "/account" });
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not complete sign in.");
@@ -73,7 +99,6 @@ export function PublicAuthPage({ inviteToken }: { inviteToken?: string }) {
       await signIn("password", formData);
       setVerificationPending(false);
       setMessage(inviteToken ? "Email verified. Applying your invitation…" : "Email verified. Your account is ready.");
-      if (!inviteToken) await navigate({ to: "/account" });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not verify the email code.");
     } finally {
@@ -110,12 +135,33 @@ export function PublicAuthPage({ inviteToken }: { inviteToken?: string }) {
       await signIn("password", formData);
       setResetPending(false);
       setMessage("Password updated. You are signed in.");
-      await navigate({ to: "/account" });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not reset the password.");
     } finally {
       setBusy(false);
     }
+  }
+
+  if (workspaceVerificationFailed) {
+    return <WorkspaceVerificationError onSignOut={() => void signOut()} />;
+  }
+
+  if (showWorkspaceChoice && access) {
+    return (
+      <WorkspaceChoice
+        email={access.user?.email}
+        onAccount={() => void navigate({ to: "/account" })}
+        onStaff={() =>
+          void navigate({
+            to: resolveWorkspaceDestination({
+              roles: access.memberships.map((membership) => membership.role as WorkspaceRole),
+              isSuperadmin: access.isSuperadmin,
+              requestedPath: returnTo,
+            }),
+          })
+        }
+      />
+    );
   }
 
   return (
