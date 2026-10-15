@@ -28,7 +28,12 @@ No child documentation areas are indexed yet.
 
 ## Current product design
 
+- [Mobile-first marketplace and app](superpowers/specs/2026-10-15-mobile-first-marketplace-app-design.md) — approved single-app direction, role workspaces, customer and staff journeys, mobile behavior, and app-store acceptance. See the [implementation plan](superpowers/plans/2026-10-15-mobile-first-marketplace-implementation-plan.md) for delivery phases.
+- [Marketplace authentication and data flow](superpowers/specs/2026-10-10-marketplace-auth-membership-events-design.md) — Convex identity, store tenancy, authorization, and event boundaries.
+
+## Earlier product design records
+
 - [Role demo dashboards](superpowers/specs/2026-10-01-role-demo-dashboards-design.md) — approved role selector and phone-first dispatch and driver scope.
 
-- [Staff, customer account, and checkout](superpowers/specs/2026-09-30-staff-customer-checkout-design.md) — approved page direction and client-side workflow scope, implemented in the current application.
-- [User roles and dashboards](user-roles-and-dashboards.md) — five user groups, current demo coverage, and the recommended role-specific views and viewport priorities.
+- [Staff, customer account, and checkout](superpowers/specs/2026-09-30-staff-customer-checkout-design.md) — earlier browser-local prototype scope; use the current marketplace design and phase plan for Convex-backed production behavior.
+- [User roles and dashboards](user-roles-and-dashboards.md) — initial role and viewport exploration.
