@@ -12,7 +12,8 @@ export const Route = createFileRoute("/_store/")({
       { title: "REETAPELE — Fresh groceries delivered in Maseru" },
       {
         name: "description",
-        content: "Shop fresh produce, bread, drinks and household essentials from your local grocer. Pay with EcoCash, M-Pesa or cash.",
+        content:
+          "Shop fresh produce, bread, drinks and household essentials from local stores. Choose cash at delivery or arrange mobile money directly with the store.",
       },
       { property: "og:title", content: "REETAPELE — Fresh groceries delivered in Maseru" },
       {
@@ -28,7 +29,13 @@ function HomePage() {
   const { shop, stores, categories, products } = useAppStore();
   const popular = filterProducts(products, { sort: "popular" }).slice(0, 8);
   const specials = products.filter((p) => p.promoPrice).slice(0, 4);
-  const uniqueCategories = [...new Map(categories.filter((category) => category.enabled).map((category) => [category.slug, category])).values()];
+  const uniqueCategories = [
+    ...new Map(
+      categories
+        .filter((category) => category.enabled)
+        .map((category) => [category.slug, category]),
+    ).values(),
+  ];
 
   return (
     <div className="space-y-8">
@@ -40,7 +47,8 @@ function HomePage() {
               Local favourites, delivered to your door.
             </h1>
             <p className="mt-3 max-w-md text-muted-foreground">
-              Order before 4pm for same-day delivery across Maseru. Pay with mobile money or cash.
+              Order before 4pm for same-day delivery across Maseru. Choose cash at delivery or
+              arrange a transfer directly with the store.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Button asChild size="lg" className="rounded-full">
@@ -70,11 +78,21 @@ function HomePage() {
               search={{ store: store.slug }}
               className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary-soft text-2xl" aria-hidden>🏬</span>
+              <span
+                className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary-soft text-2xl"
+                aria-hidden
+              >
+                🏬
+              </span>
               <span className="min-w-0">
                 <span className="block truncate font-bold">{store.name}</span>
-                <span className="block truncate text-sm text-muted-foreground">{store.tagline}</span>
-                <span className="mt-1 block text-xs text-muted-foreground">{formatMShort(store.deliveryFee)} delivery · {store.deliveryAreas.length} delivery areas</span>
+                <span className="block truncate text-sm text-muted-foreground">
+                  {store.tagline}
+                </span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  {formatMShort(store.deliveryFee)} delivery · {store.deliveryAreas.length} delivery
+                  areas
+                </span>
               </span>
             </Link>
           ))}
@@ -82,9 +100,12 @@ function HomePage() {
       </section>
 
       <section className="grid grid-cols-3 gap-2 text-center text-xs md:text-sm">
-        <Perk icon={<Truck className="size-5" />} title={`${formatMShort(shop.deliveryFee)} delivery`} />
+        <Perk
+          icon={<Truck className="size-5" />}
+          title={`${formatMShort(shop.deliveryFee)} delivery`}
+        />
         <Perk icon={<Clock className="size-5" />} title="Same-day" />
-        <Perk icon={<Wallet className="size-5" />} title="EcoCash & cash" />
+        <Perk icon={<Wallet className="size-5" />} title="Cash or transfer" />
       </section>
 
       <section>
@@ -99,7 +120,9 @@ function HomePage() {
                 search={{ category: c.slug }}
                 className="flex w-20 shrink-0 flex-col items-center gap-1.5 md:w-auto"
               >
-                <span className={`tile-${c.accent} flex size-16 items-center justify-center overflow-hidden rounded-2xl text-3xl`}>
+                <span
+                  className={`tile-${c.accent} flex size-16 items-center justify-center overflow-hidden rounded-2xl text-3xl`}
+                >
                   <img
                     src={`/categories/${c.slug}.png`}
                     alt=""

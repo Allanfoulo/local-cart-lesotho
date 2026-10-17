@@ -4,6 +4,12 @@
 
 This plan treats the current phase-status document as the baseline: store tenancy/onboarding and order fulfillment are marked complete in development; checkout/payment/customer communications and production readiness remain open. Revalidate completed areas rather than rebuilding them. Payment-provider integration stays deferred until the provider and launch scope are selected.
 
+## Progress snapshot — 2026-10-15
+
+Commit `2358bd9` adds role-based sign-in destinations, a post-sign-in account/staff choice for users with multiple active membership rows, protected-route return destinations, stricter store publish readiness, and a Playwright walkthrough configured for a Netlify Deploy Preview with a development Convex deployment. Phase 2 implementation now covers mobile storefront navigation and product controls, stock and minimum-order warnings in the cart, clearer checkout validation and payment/delivery states, receipt-safe guest account creation, and server-confirmed account/address updates. These are implementation slices; the full customer route and viewport acceptance audit remains open.
+
+Phase 0 route mapping and representative responsive captures are recorded in [`marketplace-route-baseline.md`](../marketplace-route-baseline.md). Initial Phase 1 work now includes durable Convex-backed checkout receipts, a session-persisted idempotency key for the unchanged cart, persistent role/store switching, identity-bound projection clearing when auth identity changes, account/guest customer-profile isolation during checkout, driver-only delivery projection, and compact WebP product assets. TypeScript and production build pass. This is partial progress, not completion of Phase 1: live checkout/invitation walkthroughs, payment-state acceptance, authorization denials, and deploy-preview performance measurements remain. The E2E walkthrough has not been run and does not replace the Phase 1 negative authorization matrix.
+
 ## Phase 0 — Baseline and route inventory
 
 1. Reconcile current routes and shared components with the older role-dashboard and browser-local design docs; mark superseded claims so they do not guide implementation.

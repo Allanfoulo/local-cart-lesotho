@@ -1,11 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { CatalogueManagement } from "@/components/admin/CatalogueManagement";
 import { OffersManagement } from "@/components/admin/OffersManagement";
 import { RequireMembership } from "@/components/auth/RequireMembership";
+import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
+import { useAppStore } from "@/lib/app-store";
 
 export const Route = createFileRoute("/staff/catalogue")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    store: typeof search["store"] === "string" ? search["store"] : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "REETAPELE | Stock and promotions" },
@@ -17,6 +22,11 @@ export const Route = createFileRoute("/staff/catalogue")({
 
 function CatalogueWorkspace() {
   const [section, setSection] = useState<"products" | "offers">("products");
+  const { store: storeId } = Route.useSearch();
+  const store = useAppStore();
+  useEffect(() => {
+    if (storeId && store.managementStores.some((item) => item.id === storeId)) store.setManagementStore(storeId);
+  }, [storeId, store.managementStores, store.setManagementStore]);
   return <RequireMembership roles={["store_owner", "store_manager", "catalogue_staff"]}><>
     <main className="min-h-screen bg-background px-4 py-5 sm:px-6 sm:py-8">
       <div className="mx-auto max-w-6xl">
@@ -28,6 +38,7 @@ function CatalogueWorkspace() {
           Demo views
         </Link>
         <header className="mb-5">
+          <div className="mb-3"><WorkspaceSwitcher /></div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
             REETAPELE · Catalogue
           </p>

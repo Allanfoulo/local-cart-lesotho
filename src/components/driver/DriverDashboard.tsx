@@ -1,8 +1,12 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
+import { useQuery } from "convex/react";
 import { Check, ChevronDown, MapPin, Phone, Truck } from "lucide-react";
+import { api } from "../../../convex/_generated/api";
 import { DeliveryMap } from "@/components/maps/DeliveryMap";
 import { Button } from "@/components/ui/button";
+import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
+import { mapAssignedDelivery } from "@/features/orders/convex-mapper";
 import { useAppStore } from "@/lib/app-store";
 import { deliveryAreasForMap, orderMapPoint } from "@/lib/delivery-map";
 import { formatM } from "@/lib/format";
@@ -25,11 +29,15 @@ function orderSequence(orders: Order[], sequences: Record<string, string[]>) {
 
 export function DriverDashboard() {
   const store = useAppStore();
+  const deliveryProjection = useQuery(api.orders.myAssigned, {});
   const [mapOpen, setMapOpen] = useState(false);
   const { signOut } = useAuthActions();
-  const assigned = store.orders.filter((order) => inProgress.has(order.status));
-  const activeDriver = assigned[0]?.driver ?? "Your deliveries";
-  const ordered = orderSequence(assigned, store.deliveryRouteSequence);
+  const assigned = deliveryProjection?.orders.map(mapAssignedDelivery).filter((order) => inProgress.has(order.status)) ?? [];
+  const routeSequences = Object.fromEntries((deliveryProjection?.routeSequences ?? []).map((sequence) => {
+    const driverId = deliveryProjection?.orders.find((order) => order.storeId === sequence.storeId)?.driverUserId ?? "";
+    return [`${String(sequence.storeId)}::${String(driverId)}`, sequence.orderIds.map(String)];
+  }));
+  const ordered = orderSequence(assigned, routeSequences);
   const assignedStoreIds = new Set(ordered.map((order) => order.storeId));
   const areas = deliveryAreasForMap([...new Set(store.stores.filter((shop) => assignedStoreIds.has(shop.id)).flatMap((shop) => shop.deliveryAreas))]);
   const points = ordered.flatMap((order) => {
@@ -52,7 +60,10 @@ export function DriverDashboard() {
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">Today’s deliveries</h1>
           </div>
-          <Button variant="outline" className="min-h-11" onClick={() => void signOut()}>Sign out</Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <WorkspaceSwitcher />
+            <Button variant="outline" className="min-h-11" onClick={() => void signOut()}>Sign out</Button>
+          </div>
         </header>
 
         <section aria-labelledby="current-stop-heading">
@@ -63,7 +74,11 @@ export function DriverDashboard() {
             <span className="text-sm text-muted-foreground">{ordered.length} remaining</span>
           </div>
 
-          {currentStop ? (
+          {deliveryProjection === undefined ? (
+            <div className="rounded-2xl border bg-card px-5 py-10 text-center text-sm text-muted-foreground" role="status">
+              Loading assigned deliveries…
+            </div>
+          ) : currentStop ? (
             <article className="overflow-hidden rounded-2xl border bg-card">
               <div className="flex items-center gap-3 border-b bg-muted/40 px-4 py-3">
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary font-bold text-primary-foreground">

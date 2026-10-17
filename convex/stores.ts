@@ -34,12 +34,17 @@ export const listForPlatform = query({
       const settings = await ctx.db.query("storeSettings")
         .withIndex("by_store", (q) => q.eq("storeId", store._id))
         .unique();
+      const deliverySettingsReady = Boolean(
+        settings &&
+        settings.deliveryAreas.length > 0 &&
+        settings.deliveryAreas.includes(settings.defaultDeliveryArea),
+      );
       const categories = await ctx.db.query("categories")
         .withIndex("by_store_enabled_sort", (q) => q.eq("storeId", store._id).eq("enabled", true))
         .take(100);
       const products = await ctx.db.query("products")
         .withIndex("by_store_available", (q) => q.eq("storeId", store._id).eq("available", true))
-        .take(50);
+        .take(100);
       const activeProductCount = products.filter((product) => categories.some((category) => category._id === product.categoryId)).length;
       return {
         id: store._id,
@@ -51,10 +56,11 @@ export const listForPlatform = query({
         ownerInvitationEmail: ownerInvitation?.email ?? null,
         setup: {
           hasSettings: Boolean(settings),
+          deliverySettingsReady,
           hasOwner: Boolean(ownerMembership),
           hasActiveCategory: categories.length > 0,
           activeProductCount,
-          readyToPublish: Boolean(ownerMembership && settings && categories.length && activeProductCount),
+          readyToPublish: Boolean(ownerMembership && deliverySettingsReady && categories.length && activeProductCount),
         },
       };
     }));

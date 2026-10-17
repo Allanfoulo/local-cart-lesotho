@@ -19,7 +19,12 @@ export function ProductCard({ product }: { product: Product }) {
 
   return (
     <div className="group flex flex-col rounded-2xl border border-border bg-card p-2.5 shadow-sm transition hover:shadow-md">
-      <Link to="/products/$slug" params={{ slug: product.slug }} search={{ store: store?.slug }} className="relative block">
+      <Link
+        to="/products/$slug"
+        params={{ slug: product.slug }}
+        search={{ store: store?.slug }}
+        className="relative block"
+      >
         <ProductTile emoji={product.emoji} name={product.name} />
         {product.promoPrice ? (
           <span className="absolute left-2 top-2 rounded-full bg-promo px-2 py-0.5 text-[10px] font-bold uppercase text-promo-foreground">
@@ -51,13 +56,13 @@ export function ProductCard({ product }: { product: Product }) {
         </div>
         <div className="mt-auto pt-2.5">
           {status === "out_of_stock" ? (
-            <Button variant="secondary" size="sm" className="w-full rounded-full" disabled>
+            <Button variant="secondary" size="sm" className="min-h-11 w-full rounded-full" disabled>
               Unavailable
             </Button>
           ) : inCart ? (
             <QuantityStepper
-              size="sm"
               value={inCart.quantity}
+              itemName={product.name}
               step={step}
               suffix={product.soldByWeight ? "kg" : undefined}
               onChange={(q) => setCartQuantity(product.id, q)}
@@ -65,7 +70,7 @@ export function ProductCard({ product }: { product: Product }) {
           ) : (
             <Button
               size="sm"
-              className="w-full rounded-full"
+              className="min-h-11 w-full rounded-full"
               onClick={() => {
                 addToCart(product, 1);
                 toast.success(`${product.name} added to cart`);
