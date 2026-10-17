@@ -4,10 +4,14 @@ import { ArrowLeft } from "lucide-react";
 import { DispatchOrdersQueue } from "@/components/admin/orders/DispatchOrdersQueue";
 import { DispatchBoard } from "@/components/admin/orders/DispatchBoard";
 import { RequireMembership } from "@/components/auth/RequireMembership";
+import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
 export const Route = createFileRoute("/staff/dispatch")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    store: typeof search["store"] === "string" ? search["store"] : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "REETAPELE | Dispatch" },
@@ -19,10 +23,13 @@ export const Route = createFileRoute("/staff/dispatch")({
 
 function DispatchWorkspace() {
   const [section, setSection] = useState<"orders" | "stops">("orders");
-  const [storeId, setStoreId] = useState<string>("");
+  const { store } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const access = useQuery(api.memberships.currentAccess, {});
-  const canDispatch = Boolean(access?.isSuperadmin || access?.memberships.some((membership) => ["store_owner", "store_manager", "dispatcher"].includes(membership.role)));
-  const selectedStoreId = access?.stores.find((store) => store.id === storeId)?.id ?? access?.stores[0]?.id;
+  const selectedStoreId = access?.stores.find((item) => item.id === store)?.id ?? access?.stores[0]?.id;
+  const canDispatch = Boolean(access?.isSuperadmin || access?.memberships.some((membership) =>
+    membership.storeId === selectedStoreId && ["store_owner", "store_manager", "dispatcher"].includes(membership.role),
+  ));
   return <RequireMembership roles={["store_owner", "store_manager", "dispatcher", "order_staff"]}><>
     <main className="min-h-screen bg-background px-3 py-4 sm:px-5 sm:py-7">
       <div className="mx-auto max-w-5xl">
@@ -57,7 +64,7 @@ function DispatchWorkspace() {
             </button>
           ))}
         </nav>
-        {access?.stores && access.stores.length > 1 && <label className="mb-5 block max-w-sm text-sm font-medium">Store<select aria-label="Dispatch store" className="mt-1 h-11 w-full rounded-xl border bg-card px-3" value={selectedStoreId} onChange={(event) => setStoreId(event.target.value)}>{access.stores.map((store) => <option key={store.id} value={store.id}>{store.name}{store.enabled ? "" : " (paused)"}</option>)}</select></label>}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><WorkspaceSwitcher />{access?.stores && access.stores.length > 1 && <label className="block w-full max-w-sm text-sm font-medium">Store<select aria-label="Dispatch store" className="mt-1 h-11 w-full rounded-xl border bg-card px-3" value={selectedStoreId} onChange={(event) => void navigate({ search: (previous) => ({ ...previous, store: event.target.value }) })}>{access.stores.map((item) => <option key={item.id} value={item.id}>{item.name}{item.enabled ? "" : " (paused)"}</option>)}</select></label>}</div>
         {section === "orders" || !canDispatch ? <DispatchOrdersQueue storeId={selectedStoreId} /> : <DispatchBoard storeId={selectedStoreId} />}
         <p className="mt-6 text-center text-xs text-muted-foreground">
           Order, assignment, and stop updates sync with the store workspace.

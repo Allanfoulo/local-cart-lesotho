@@ -1,6 +1,6 @@
 # Marketplace Browser E2E Design
 
-**Status:** Approved direction; implementation plan follows this spec.
+**Status:** Approved; the harness is implemented but has not yet been run against a Deploy Preview.
 
 ## Goal
 

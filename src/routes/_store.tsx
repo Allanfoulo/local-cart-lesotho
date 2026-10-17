@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Logo } from "@/components/store/Logo";
 import { ConvexMarketplaceSync } from "@/components/shop/ConvexMarketplaceSync";
+import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -64,21 +65,24 @@ function StoreLayout() {
             ) : null}
           </Link>
         </div>
-        <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 pb-2.5 text-sm">
-          <MapPin className="size-4 shrink-0 text-primary" />
-          <span className="text-muted-foreground">Deliver to</span>
-          <Select value={deliveryArea} onValueChange={setDeliveryArea}>
-            <SelectTrigger className="h-7 w-auto gap-1 border-0 bg-transparent px-1 font-semibold shadow-none">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {shop.deliveryAreas.map((a) => (
-                <SelectItem key={a} value={a}>
-                  {a}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 pb-2.5 text-sm">
+          <div className="flex min-w-0 items-center gap-2">
+            <MapPin className="size-4 shrink-0 text-primary" />
+            <span className="shrink-0 text-muted-foreground">Deliver to</span>
+            <Select value={deliveryArea} onValueChange={setDeliveryArea}>
+              <SelectTrigger className="h-7 w-auto min-w-0 gap-1 border-0 bg-transparent px-1 font-semibold shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {shop.deliveryAreas.map((a) => (
+                  <SelectItem key={a} value={a}>
+                    {a}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <WorkspaceSwitcher className="ml-auto" />
         </div>
       </header>
 
@@ -95,7 +99,7 @@ function StoreLayout() {
           </div>
           <div className="text-right">
             <p>Call or WhatsApp {shop.phone}</p>
-            <Link to="/admin" className="underline-offset-4 hover:underline">
+            <Link to="/admin" search={{ store: undefined }} className="underline-offset-4 hover:underline">
               Staff login
             </Link>
           </div>

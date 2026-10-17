@@ -144,6 +144,7 @@ interface AppStoreValue extends AppState {
   replaceStaffWorkspace: (workspace: { orders: Order[]; customers: Customer[]; drivers: AppState["drivers"]; preparationStaff?: AppState["preparationStaff"]; deliveryRouteSequence?: Record<string, string[]> }) => void;
   replaceDeliveryLandmarks: (places: DeliveryLandmark[]) => void;
   replaceCustomerAccount: (account: { customerId: string; name: string; phone: string; email: string; addresses: DeliveryAddress[]; favourites: string[]; preferences: Array<{ key: string; enabled: boolean }> }) => void;
+  resetIdentityBoundState: () => void;
   recordConvexCheckout: (input: {
     checkoutId: string;
     customer: { name: string; phone: string; email?: string };
@@ -352,6 +353,27 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     }));
   }, [patch]);
 
+  const resetIdentityBoundState = useCallback(() => {
+    patch((prev) => ({
+      ...prev,
+      managementStores: [],
+      managementCategories: [],
+      managementProducts: [],
+      managementPromotions: [],
+      managementStoreId: "",
+      orders: [],
+      customers: [],
+      drivers: [],
+      preparationStaff: [],
+      notificationPreferences: seedNotificationPreferences,
+      savedAddresses: [],
+      deliveryLandmarks: [],
+      deliveryRouteSequence: {},
+      favourites: [],
+      account: { customerId: "", name: "", phone: "", email: undefined, signedIn: false },
+    }));
+  }, [patch]);
+
   const value = useMemo<AppStoreValue>(() => {
     const cartCount = state.cart.length;
     const cartSubtotal = Number(
@@ -363,7 +385,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       ...state,
       managementStore,
       setManagementStore: (storeId) => {
-        if (state.managementStores.some((store) => store.id === storeId)) {
+        if (state.managementStoreId !== storeId && state.managementStores.some((store) => store.id === storeId)) {
           patch((prev) => ({ ...prev, managementStoreId: storeId }));
         }
       },
@@ -377,6 +399,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       replaceStaffWorkspace,
       replaceDeliveryLandmarks,
       replaceCustomerAccount,
+      resetIdentityBoundState,
 
       recordConvexCheckout: ({ checkoutId, customer, address, payment, orders: receipts }) => {
         const orders: Order[] = receipts.map((receipt, index) => {

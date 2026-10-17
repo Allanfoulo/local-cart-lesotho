@@ -26,6 +26,7 @@ import { OffersManagement } from "@/components/admin/OffersManagement";
 import { MembershipManagement } from "@/components/admin/MembershipManagement";
 import { StoresManagement } from "@/components/admin/StoresManagement";
 import { ManagementStoreSelector } from "@/components/admin/ManagementStoreSelector";
+import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
 import {
   useAppStore,
   ORDER_STATUS_LABEL,
@@ -51,12 +52,12 @@ const sections = [
 type Section = (typeof sections)[number][0];
 type WorkspaceSection = Section | "stores";
 
-export function StaffWorkspace() {
+export function StaffWorkspace({ initialStoreId }: { initialStoreId?: string }) {
   const store = useAppStore();
   const access = useQuery(api.memberships.currentAccess, {});
   const { signOut } = useAuthActions();
   const [section, setSection] = useState<WorkspaceSection>("overview");
-  const [orderStoreId, setOrderStoreId] = useState<string>("");
+  const [orderStoreId, setOrderStoreId] = useState<string>(initialStoreId ?? "");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [notice, setNotice] = useState("");
@@ -103,6 +104,12 @@ export function StaffWorkspace() {
   const navigation = access?.isSuperadmin ? [...sections, ["stores", "Stores", StoreIcon] as const] : sections;
   const heading = navigation.find(([id]) => id === section)?.[1] ?? "Today";
 
+  useEffect(() => {
+    if (!access || !initialStoreId || !access.stores.some((item) => item.id === initialStoreId)) return;
+    setOrderStoreId(initialStoreId);
+    store.setManagementStore(initialStoreId);
+  }, [access, initialStoreId, store.setManagementStore]);
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-9">
       <header className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -114,6 +121,7 @@ export function StaffWorkspace() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <WorkspaceSwitcher />
           <Button variant="outline" className="min-h-11" onClick={() => void signOut()}>Sign out</Button>
           <span className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-primary">
             <span className="size-2 rounded-full bg-primary" />

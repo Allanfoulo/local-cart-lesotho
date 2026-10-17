@@ -20,6 +20,48 @@ type CheckoutInput = {
   couponCode?: string;
 };
 
+const PENDING_CHECKOUT_STORAGE_KEY = "reetapele.pending-checkout";
+type PendingCheckout = { checkoutId: string; cartFingerprint: string };
+
+function pendingCheckoutFor(cartFingerprint: string, current?: PendingCheckout): PendingCheckout {
+  if (current?.cartFingerprint === cartFingerprint) return current;
+  try {
+    const saved: unknown = JSON.parse(sessionStorage.getItem(PENDING_CHECKOUT_STORAGE_KEY) ?? "null");
+    if (
+      saved &&
+      typeof saved === "object" &&
+      "checkoutId" in saved &&
+      typeof saved.checkoutId === "string" &&
+      saved.checkoutId.length >= 12 &&
+      "cartFingerprint" in saved &&
+      saved.cartFingerprint === cartFingerprint
+    ) {
+      return { checkoutId: saved.checkoutId, cartFingerprint };
+    }
+  } catch {
+    // Storage may be unavailable; the in-memory key still protects retries
+    // while this checkout page remains open.
+  }
+  const pending = { checkoutId: crypto.randomUUID(), cartFingerprint };
+  try {
+    sessionStorage.setItem(PENDING_CHECKOUT_STORAGE_KEY, JSON.stringify(pending));
+  } catch {
+    // Keep the generated key in memory for the current page session.
+  }
+  return pending;
+}
+
+function clearPendingCheckout(checkoutId: string) {
+  try {
+    const saved: unknown = JSON.parse(sessionStorage.getItem(PENDING_CHECKOUT_STORAGE_KEY) ?? "null");
+    if (saved && typeof saved === "object" && "checkoutId" in saved && saved.checkoutId === checkoutId) {
+      sessionStorage.removeItem(PENDING_CHECKOUT_STORAGE_KEY);
+    }
+  } catch {
+    // Clearing an unavailable or malformed storage entry is best effort.
+  }
+}
+
 export function CheckoutWizard() {
   return <ConvexCheckoutWizard />;
 }
@@ -73,7 +115,7 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
   const groups = groupCartByStore(s.cart, s.stores.length ? s.stores : [s.shop]);
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const checkoutId = useRef<string | undefined>(undefined);
+  const checkoutId = useRef<PendingCheckout | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [addressId, setAddressId] = useState(s.savedAddresses[0]?.id ?? "new");
   const [address, setAddress] = useState<DeliveryAddress>(
@@ -231,9 +273,14 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
     const finalAddress = { ...chosenAddress };
     setSubmitting(true);
     try {
-      checkoutId.current ??= crypto.randomUUID();
+      const cartFingerprint = JSON.stringify(
+        s.cart
+          .map((item) => [item.productId, item.quantity] as const)
+          .sort(([a], [b]) => a.localeCompare(b)),
+      );
+      checkoutId.current = pendingCheckoutFor(cartFingerprint, checkoutId.current);
       const receiptId = await submitOrder({
-        checkoutId: checkoutId.current,
+        checkoutId: checkoutId.current.checkoutId,
         customer: { name: name.trim(), phone: phone.trim(), email: email.trim() || undefined },
         address: finalAddress,
         payment,
@@ -245,6 +292,8 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
           id: finalAddress.id ?? crypto.randomUUID(),
           label: finalAddress.label || "Home",
         });
+      clearPendingCheckout(checkoutId.current.checkoutId);
+      checkoutId.current = undefined;
       void navigate({ to: "/order-confirmation/$id", params: { id: receiptId } });
     } catch (placeError) {
       setError(placeError instanceof Error ? placeError.message : "The checkout could not be placed.");

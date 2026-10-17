@@ -7,19 +7,25 @@ const JPG_IMAGES = import.meta.glob<string>("../../assets/products/*.jpg", {
   eager: true,
   import: "default",
 });
-const PNG_IMAGES = import.meta.glob<string>("../../assets/products/*.png", {
+const WEBP_IMAGES = import.meta.glob<string>("../../assets/products/*.webp", {
   eager: true,
   import: "default",
 });
 const BY_SLUG: Record<string, string> = Object.fromEntries(
-  [...Object.entries(JPG_IMAGES), ...Object.entries(PNG_IMAGES)].map(([path, src]) => [
-    path.split("/").pop()!.replace(/\.(jpg|png)$/, ""),
+  [...Object.entries(JPG_IMAGES), ...Object.entries(WEBP_IMAGES)].map(([path, src]) => [
+    path
+      .split("/")
+      .pop()!
+      .replace(/\.(jpg|webp)$/, ""),
     src,
   ]),
 );
 
 function slugify(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function tileFor(seed: string) {
@@ -54,7 +60,14 @@ export function ProductTile({
       )}
     >
       {src ? (
-        <img src={src} alt={name} loading="lazy" className="size-full object-cover" width={512} height={512} />
+        <img
+          src={src}
+          alt={name}
+          loading="lazy"
+          className="size-full object-cover"
+          width={512}
+          height={512}
+        />
       ) : (
         <span aria-hidden>{emoji}</span>
       )}

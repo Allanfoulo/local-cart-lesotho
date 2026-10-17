@@ -157,6 +157,9 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
   const orderNumber = confirmationText.match(/\bREE-[A-Z0-9]+-[A-Z0-9]+\b/)?.[0];
   expect(orderNumber, "The confirmation should show the created order number").toBeTruthy();
   await expect(page.locator("article").filter({ hasText: orderNumber! })).toContainText(/received/i);
+  await page.reload();
+  await expect(page.getByText("CHECKOUT PLACED")).toBeVisible();
+  await expect(page.locator("article").filter({ hasText: orderNumber! })).toContainText(/received/i);
 
   const managerContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const driverContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
