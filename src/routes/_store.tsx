@@ -25,7 +25,7 @@ function StoreLayout() {
   const [q, setQ] = useState("");
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0">
+    <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
       {import.meta.env["VITE_CONVEX_URL"] ? <ConvexMarketplaceSync /> : null}
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
@@ -99,17 +99,25 @@ function StoreLayout() {
           </div>
           <div className="text-right">
             <p>Call or WhatsApp {shop.phone}</p>
-            <Link to="/admin" search={{ store: undefined }} className="underline-offset-4 hover:underline">
+            <Link
+              to="/admin"
+              search={{ store: undefined }}
+              className="underline-offset-4 hover:underline"
+            >
               Staff login
             </Link>
           </div>
         </div>
       </footer>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] md:hidden">
         <TabLink to="/" icon={<Home className="size-5" />} label="Home" />
         <TabLink to="/shop" icon={<LayoutGrid className="size-5" />} label="Shop" />
-        <TabLink to="/cart" icon={<ShoppingCart className="size-5" />} label={`Cart${cartCount ? ` (${cartCount})` : ""}`} />
+        <TabLink
+          to="/cart"
+          icon={<ShoppingCart className="size-5" />}
+          label={`Cart${cartCount ? ` (${cartCount})` : ""}`}
+        />
         <TabLink to="/orders" icon={<Package className="size-5" />} label="Orders" />
         <TabLink to="/account" icon={<User className="size-5" />} label="Account" />
       </nav>
@@ -142,7 +150,7 @@ function TabLink({
     <Link
       to={to}
       activeOptions={{ exact: to === "/" }}
-      className="flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-muted-foreground"
+      className="flex min-h-12 flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-medium text-muted-foreground"
       activeProps={{ className: "text-primary" }}
     >
       {icon}

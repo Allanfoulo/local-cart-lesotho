@@ -798,4 +798,10 @@ export const PAYMENT_LABEL = {
   card: "Card",
 } as const;
 
+export const PAYMENT_STATUS_LABEL: Record<Payment["status"], string> = {
+  pending: "Awaiting payment confirmation",
+  paid: "Paid",
+  unpaid: "Due at delivery",
+};
+
 export const MOBILE_MONEY_PROVIDERS = ["EcoCash", "M-Pesa", "Other mobile money"];

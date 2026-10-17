@@ -37,7 +37,7 @@ async function openPreviewAndVerifyDeployment(page: Page): Promise<DeploymentObs
     await route.continue();
   });
 
-  await page.goto("/shop");
+  await page.goto("/shop", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "All products" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add", exact: true }).first()).toBeVisible();
 

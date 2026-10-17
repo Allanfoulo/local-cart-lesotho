@@ -26,7 +26,9 @@ type PendingCheckout = { checkoutId: string; cartFingerprint: string };
 function pendingCheckoutFor(cartFingerprint: string, current?: PendingCheckout): PendingCheckout {
   if (current?.cartFingerprint === cartFingerprint) return current;
   try {
-    const saved: unknown = JSON.parse(sessionStorage.getItem(PENDING_CHECKOUT_STORAGE_KEY) ?? "null");
+    const saved: unknown = JSON.parse(
+      sessionStorage.getItem(PENDING_CHECKOUT_STORAGE_KEY) ?? "null",
+    );
     if (
       saved &&
       typeof saved === "object" &&
@@ -53,8 +55,15 @@ function pendingCheckoutFor(cartFingerprint: string, current?: PendingCheckout):
 
 function clearPendingCheckout(checkoutId: string) {
   try {
-    const saved: unknown = JSON.parse(sessionStorage.getItem(PENDING_CHECKOUT_STORAGE_KEY) ?? "null");
-    if (saved && typeof saved === "object" && "checkoutId" in saved && saved.checkoutId === checkoutId) {
+    const saved: unknown = JSON.parse(
+      sessionStorage.getItem(PENDING_CHECKOUT_STORAGE_KEY) ?? "null",
+    );
+    if (
+      saved &&
+      typeof saved === "object" &&
+      "checkoutId" in saved &&
+      saved.checkoutId === checkoutId
+    ) {
       sessionStorage.removeItem(PENDING_CHECKOUT_STORAGE_KEY);
     }
   } catch {
@@ -110,7 +119,11 @@ function ConvexCheckoutWizard() {
   );
 }
 
-function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInput) => Promise<string> }) {
+function CheckoutWizardForm({
+  submitOrder,
+}: {
+  submitOrder: (input: CheckoutInput) => Promise<string>;
+}) {
   const s = useAppStore();
   const groups = groupCartByStore(s.cart, s.stores.length ? s.stores : [s.shop]);
   const navigate = useNavigate();
@@ -143,13 +156,14 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
   const today = new Date().toISOString().slice(0, 10);
   const couponDiscount = activeCoupon
     ? groups.reduce((sum, group) => {
-        const coupon = s.promotions.find((promotion) =>
-          promotion.storeId === group.store.id &&
-          promotion.type === "coupon" &&
-          promotion.active &&
-          promotion.code?.trim().toUpperCase() === activeCoupon &&
-          promotion.startDate <= today &&
-          promotion.endDate >= today,
+        const coupon = s.promotions.find(
+          (promotion) =>
+            promotion.storeId === group.store.id &&
+            promotion.type === "coupon" &&
+            promotion.active &&
+            promotion.code?.trim().toUpperCase() === activeCoupon &&
+            promotion.startDate <= today &&
+            promotion.endDate >= today,
         );
         return sum + (coupon ? Math.min(group.subtotal, coupon.value) : 0);
       }, 0)
@@ -202,15 +216,31 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
     key === "card"
       ? false
       : key === "mobile_money"
-      ? groups.every((group) => group.store.paymentOptions.mobileMoney)
-      : key === "cash_on_delivery"
-        ? groups.every((group) => group.store.paymentOptions.cashOnDelivery)
-        : groups.every((group) => group.store.paymentOptions.card);
+        ? groups.every((group) => group.store.paymentOptions.mobileMoney)
+        : key === "cash_on_delivery"
+          ? groups.every((group) => group.store.paymentOptions.cashOnDelivery)
+          : groups.every((group) => group.store.paymentOptions.card);
+  const hasSharedPaymentMethod = allowed("cash_on_delivery") || allowed("mobile_money");
   const continueStep = () => {
     setError("");
     if (step === 0) {
       if (!name.trim() || !phone.trim()) {
         setError("Add your name and phone number.");
+        return;
+      }
+      const normalizedPhone = phone.trim().replace(/[\s()-]/g, "");
+      if (!/^\+?[0-9]{8,15}$/.test(normalizedPhone)) {
+        setError("Enter a valid phone number so the store can contact you about delivery.");
+        return;
+      }
+      if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        setError("Enter a valid email address or leave the optional field blank.");
+        return;
+      }
+      if (!deliveryAreas.length) {
+        setError(
+          "The stores in this cart have no shared delivery area. Remove items from a store or contact the stores for help.",
+        );
         return;
       }
       if (
@@ -228,6 +258,12 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
       }
     }
     if (step === 1) {
+      if (!hasSharedPaymentMethod) {
+        setError(
+          "The stores in this cart do not share a payment method. Remove items from one store or contact the stores for help.",
+        );
+        return;
+      }
       if (!allowed(method)) {
         setError("Choose a payment option accepted by every store in your cart.");
         return;
@@ -248,7 +284,10 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
     if (minimumIssues.length) {
       setError(
         minimumIssues
-          .map(({ store, subtotal }) => `${store.name} requires ${formatM(store.minimumOrder)} minimum; add ${formatM(store.minimumOrder - subtotal)}.`)
+          .map(
+            ({ store, subtotal }) =>
+              `${store.name} requires ${formatM(store.minimumOrder)} minimum; add ${formatM(store.minimumOrder - subtotal)}.`,
+          )
           .join(" "),
       );
       return;
@@ -286,7 +325,11 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
         payment,
         ...(activeCoupon ? { couponCode: activeCoupon } : {}),
       });
-      if (saveAddress && s.account.signedIn && (finalAddress.address.trim() || finalAddress.landmark?.trim()))
+      if (
+        saveAddress &&
+        s.account.signedIn &&
+        (finalAddress.address.trim() || finalAddress.landmark?.trim())
+      )
         s.saveAddress({
           ...finalAddress,
           id: finalAddress.id ?? crypto.randomUUID(),
@@ -296,7 +339,9 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
       checkoutId.current = undefined;
       void navigate({ to: "/order-confirmation/$id", params: { id: receiptId } });
     } catch (placeError) {
-      setError(placeError instanceof Error ? placeError.message : "The checkout could not be placed.");
+      setError(
+        placeError instanceof Error ? placeError.message : "The checkout could not be placed.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -313,7 +358,7 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
       </main>
     );
   return (
-    <main className="mx-auto max-w-6xl px-4 py-7 md:px-8 md:py-10">
+    <main className="mx-auto max-w-6xl px-4 py-5 sm:py-7 md:px-8 md:py-10">
       <div className="mb-6">
         <Link
           to="/cart"
@@ -322,16 +367,17 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
           <ChevronLeft className="size-4" />
           Back to cart
         </Link>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight">Checkout</h1>
-        <p className="mt-1 text-muted-foreground">
-          A few details and your groceries are on their way.
+        <h1 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">Checkout</h1>
+        <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+          Check delivery, payment, and per-store totals before placing your order.
         </p>
       </div>
-      <ol aria-label="Checkout progress" className="mb-8 grid grid-cols-3">
+      <ol aria-label="Checkout progress" className="mb-6 grid grid-cols-3 sm:mb-8">
         {["Delivery", "Payment", "Review"].map((label, i) => (
           <li
             key={label}
-            className={`border-b-2 pb-3 text-sm font-semibold ${i <= step ? "border-primary text-primary" : "border-border text-muted-foreground"}`}
+            aria-current={i === step ? "step" : undefined}
+            className={`border-b-2 pb-3 text-xs font-semibold sm:text-sm ${i <= step ? "border-primary text-primary" : "border-border text-muted-foreground"}`}
           >
             <span className="mr-2 inline-grid size-6 place-items-center rounded-full bg-muted text-xs">
               {i < step ? <Check className="size-4" /> : i + 1}
@@ -351,7 +397,8 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
                     Full name
                     <Input
                       required
-                      className="mt-1.5"
+                      autoComplete="name"
+                      className="mt-1.5 min-h-11"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                     />
@@ -361,7 +408,9 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
                     <Input
                       required
                       type="tel"
-                      className="mt-1.5"
+                      autoComplete="tel"
+                      inputMode="tel"
+                      className="mt-1.5 min-h-11"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                     />
@@ -370,7 +419,9 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
                     Email (optional)
                     <Input
                       type="email"
-                      className="mt-1.5"
+                      autoComplete="email"
+                      inputMode="email"
+                      className="mt-1.5 min-h-11"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
@@ -439,7 +490,7 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
                         key={a.id}
                         type="button"
                         onClick={() => setAddressId(a.id ?? "new")}
-                        className={`rounded-xl border px-3 py-2 text-sm ${addressId === a.id ? "border-primary bg-emerald-50 text-primary" : "bg-card"}`}
+                        className={`min-h-11 rounded-xl border px-3 py-2 text-sm ${addressId === a.id ? "border-primary bg-emerald-50 text-primary" : "bg-card"}`}
                       >
                         <MapPin className="mr-1 inline size-3.5" />
                         {a.label || a.area}
@@ -451,18 +502,14 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
                         setAddressId("new");
                         setAddress({ area: s.deliveryArea, address: "" });
                       }}
-                      className={`rounded-xl border px-3 py-2 text-sm ${addressId === "new" ? "border-primary bg-emerald-50 text-primary" : "bg-card"}`}
+                      className={`min-h-11 rounded-xl border px-3 py-2 text-sm ${addressId === "new" ? "border-primary bg-emerald-50 text-primary" : "bg-card"}`}
                     >
                       + New address
                     </button>
                   </div>
                 )}
                 {addressId === "new" ? (
-                  <LocationPicker
-                    value={address}
-                    areas={deliveryAreas}
-                    onChange={setDelivery}
-                  />
+                  <LocationPicker value={address} areas={deliveryAreas} onChange={setDelivery} />
                 ) : (
                   <div className="rounded-xl border bg-card p-4">
                     <p className="font-semibold">{chosenAddress.address}</p>
@@ -471,7 +518,7 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
                       {chosenAddress.landmark ? ` · Near ${chosenAddress.landmark}` : ""}
                     </p>
                     <Button
-                      className="mt-3"
+                      className="mt-3 min-h-11"
                       size="sm"
                       variant="outline"
                       onClick={() => {
@@ -483,15 +530,17 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
                     </Button>
                   </div>
                 )}
-                {s.account.signedIn && <label className="mt-4 flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={saveAddress}
-                    onChange={(e) => setSaveAddress(e.target.checked)}
-                    className="size-4 accent-primary"
-                  />
-                  Save this address for next time
-                </label>}
+                {s.account.signedIn && (
+                  <label className="mt-4 flex min-h-11 items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={saveAddress}
+                      onChange={(e) => setSaveAddress(e.target.checked)}
+                      className="size-4 accent-primary"
+                    />
+                    Save this address for next time
+                  </label>
+                )}
               </section>
             </div>
           )}
@@ -509,7 +558,11 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
                       "Cash on delivery",
                       "Pay your driver when the order arrives.",
                     ],
-                    ["mobile_money", "Mobile money", "Arrange a separate transfer with each store."],
+                    [
+                      "mobile_money",
+                      "Mobile money",
+                      "Arrange a separate transfer with each store.",
+                    ],
                     ["card", "Card", "Card processing is not configured yet."],
                   ] as [Method, string, string][]
                 )
@@ -517,7 +570,7 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
                   .map(([key, title, desc]) => (
                     <label
                       key={key}
-                      className={`block cursor-pointer rounded-2xl border p-4 ${method === key ? "border-primary bg-emerald-50/60" : "bg-card"}`}
+                      className={`block min-h-16 cursor-pointer rounded-2xl border p-4 ${method === key ? "border-primary bg-emerald-50/60" : "bg-card"}`}
                     >
                       <span className="flex items-center gap-3">
                         <input
@@ -535,6 +588,12 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
                     </label>
                   ))}
               </div>
+              {!hasSharedPaymentMethod && (
+                <p role="alert" className="mt-4 rounded-xl bg-warning/15 p-3 text-sm">
+                  These stores do not share an available payment method for one checkout. Remove
+                  items from one store or contact the stores for help.
+                </p>
+              )}
               {method === "mobile_money" && (
                 <div className="mt-4 space-y-3">
                   <label className="block text-sm font-medium">
@@ -550,15 +609,37 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
                     </select>
                   </label>
                   <div className="rounded-xl border bg-card p-4">
-                    <p className="text-sm font-semibold">Confirm transfer details with each store</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Payments are arranged outside REETAPELE. Ask each store for its correct transfer number before sending money.</p>
+                    <p className="text-sm font-semibold">
+                      Confirm transfer details with each store
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Payments are arranged outside REETAPELE. Ask each store for its correct
+                      transfer number before sending money.
+                    </p>
                     <ul className="mt-3 divide-y">
                       {groups.map((group) => (
-                        <li key={group.store.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                        <li
+                          key={group.store.id}
+                          className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"
+                        >
                           <span className="font-medium">{group.store.name}</span>
                           <span className="flex gap-3">
-                            <a className="font-semibold text-primary underline" href={`tel:${group.store.phone.replace(/\s/g, "")}`}>Call</a>
-                            {group.store.whatsapp && <a className="font-semibold text-primary underline" href={`https://wa.me/${group.store.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp</a>}
+                            <a
+                              className="inline-flex min-h-11 items-center px-2 font-semibold text-primary underline"
+                              href={`tel:${group.store.phone.replace(/\s/g, "")}`}
+                            >
+                              Call
+                            </a>
+                            {group.store.whatsapp && (
+                              <a
+                                className="inline-flex min-h-11 items-center px-2 font-semibold text-primary underline"
+                                href={`https://wa.me/${group.store.whatsapp.replace(/\D/g, "")}`}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                WhatsApp
+                              </a>
+                            )}
                           </span>
                         </li>
                       ))}
@@ -571,10 +652,11 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
                   <label className="mt-4 block text-sm font-medium">
                     Cash amount (optional)
                     <Input
-                      className="mt-1.5 max-w-xs"
+                      className="mt-1.5 min-h-11 max-w-xs"
                       type="number"
                       min={total}
                       step="0.01"
+                      inputMode="decimal"
                       placeholder="Leave blank for exact amount"
                       value={cashGiven}
                       onChange={(e) => setCashGiven(e.target.value)}
@@ -600,26 +682,68 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
             <section>
               <h2 className="text-xl font-semibold">Check your order</h2>
               <div className="mt-4 rounded-2xl border bg-card p-4">
-                <label htmlFor="checkout-coupon" className="text-sm font-semibold">Store coupon code</label>
-                <div className="mt-2 flex gap-2">
-                  <Input id="checkout-coupon" value={couponInput} onChange={(event) => setCouponInput(event.target.value)} placeholder="Enter a store coupon" autoComplete="off" />
-                  <Button type="button" variant="outline" onClick={() => {
-                    const code = couponInput.trim().toUpperCase();
-                    const matches = groups.some((group) => s.promotions.some((promotion) =>
-                      promotion.storeId === group.store.id && promotion.type === "coupon" && promotion.active &&
-                      promotion.code?.trim().toUpperCase() === code && promotion.startDate <= today && promotion.endDate >= today,
-                    ));
-                    if (!code || !matches) {
-                      setAppliedCoupon(undefined);
-                      setError("That coupon is invalid, expired, or not available for products in your cart.");
-                      return;
-                    }
-                    setError("");
-                    setAppliedCoupon(code);
-                  }}>Apply</Button>
-                  {appliedCoupon && <Button type="button" variant="ghost" onClick={() => { setAppliedCoupon(undefined); setCouponInput(""); }}>Remove</Button>}
+                <label htmlFor="checkout-coupon" className="text-sm font-semibold">
+                  Store coupon code
+                </label>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    id="checkout-coupon"
+                    className="min-h-11"
+                    value={couponInput}
+                    onChange={(event) => setCouponInput(event.target.value)}
+                    placeholder="Enter a store coupon"
+                    autoComplete="off"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11 sm:shrink-0"
+                    onClick={() => {
+                      const code = couponInput.trim().toUpperCase();
+                      const matches = groups.some((group) =>
+                        s.promotions.some(
+                          (promotion) =>
+                            promotion.storeId === group.store.id &&
+                            promotion.type === "coupon" &&
+                            promotion.active &&
+                            promotion.code?.trim().toUpperCase() === code &&
+                            promotion.startDate <= today &&
+                            promotion.endDate >= today,
+                        ),
+                      );
+                      if (!code || !matches) {
+                        setAppliedCoupon(undefined);
+                        setError(
+                          "That coupon is invalid, expired, or not available for products in your cart.",
+                        );
+                        return;
+                      }
+                      setError("");
+                      setAppliedCoupon(code);
+                    }}
+                  >
+                    Apply
+                  </Button>
+                  {appliedCoupon && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="min-h-11 sm:shrink-0"
+                      onClick={() => {
+                        setAppliedCoupon(undefined);
+                        setCouponInput("");
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  )}
                 </div>
-                {appliedCoupon && <p className="mt-2 text-sm text-primary">{appliedCoupon} applied · You save {formatM(couponDiscount)} on eligible store orders.</p>}
+                {appliedCoupon && (
+                  <p className="mt-2 text-sm text-primary">
+                    {appliedCoupon} applied · You save {formatM(couponDiscount)} on eligible store
+                    orders.
+                  </p>
+                )}
               </div>
               <div className="mt-4 rounded-2xl border bg-card p-5">
                 <h3 className="font-semibold">Delivery</h3>
@@ -672,10 +796,11 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
               {error}
             </p>
           )}
-          <div className="mt-6 flex justify-between gap-3">
+          <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 mt-6 flex flex-col-reverse gap-3 border-t bg-background/95 py-3 backdrop-blur sm:static sm:flex-row sm:justify-between sm:border-0 sm:bg-transparent sm:py-0 sm:backdrop-blur-none">
             {step > 0 ? (
               <Button
                 variant="outline"
+                className="min-h-12 w-full sm:w-auto"
                 onClick={() => {
                   setError("");
                   setStep(step - 1);
@@ -688,12 +813,16 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
               <span />
             )}
             {step < 2 ? (
-              <Button onClick={continueStep}>
+              <Button className="min-h-12 w-full sm:w-auto" onClick={continueStep}>
                 Continue
                 <ChevronRight className="size-4" />
               </Button>
             ) : (
-              <Button onClick={() => void place()} disabled={submitting}>
+              <Button
+                className="min-h-12 w-full sm:w-auto"
+                onClick={() => void place()}
+                disabled={submitting}
+              >
                 {submitting ? "Placing order…" : `Place order · ${formatM(total)}`}
               </Button>
             )}
@@ -705,18 +834,18 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
             <section key={group.store.id} className="mt-4">
               <h3 className="text-sm font-semibold">{group.store.name}</h3>
               <ul className="divide-y">
-            {group.items.map((item) => (
-              <li key={item.productId} className="flex justify-between gap-3 py-3 text-sm">
-                <span>
-                  {item.quantity} × {item.name}
-                  <span className="block text-xs text-muted-foreground">
-                    {unitLabel(item.unit)}
-                  </span>
-                </span>
-                <span className="font-semibold">{formatM(item.unitPrice * item.quantity)}</span>
-              </li>
-            ))}
-          </ul>
+                {group.items.map((item) => (
+                  <li key={item.productId} className="flex justify-between gap-3 py-3 text-sm">
+                    <span>
+                      {item.quantity} × {item.name}
+                      <span className="block text-xs text-muted-foreground">
+                        {unitLabel(item.unit)}
+                      </span>
+                    </span>
+                    <span className="font-semibold">{formatM(item.unitPrice * item.quantity)}</span>
+                  </li>
+                ))}
+              </ul>
               <div className="flex justify-between border-t pt-2 text-xs text-muted-foreground">
                 <span>Delivery from {group.store.name}</span>
                 <span>{formatM(group.store.deliveryFee)}</span>
@@ -732,7 +861,12 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
               <span className="text-muted-foreground">Total delivery</span>
               <span>{formatM(deliveryTotal)}</span>
             </div>
-            {couponDiscount > 0 && <div className="flex justify-between text-primary"><span>Coupon savings</span><span>−{formatM(couponDiscount)}</span></div>}
+            {couponDiscount > 0 && (
+              <div className="flex justify-between text-primary">
+                <span>Coupon savings</span>
+                <span>−{formatM(couponDiscount)}</span>
+              </div>
+            )}
             <div className="flex justify-between border-t pt-3 text-base font-bold">
               <span>Total</span>
               <span>{formatM(total)}</span>
@@ -740,7 +874,11 @@ function CheckoutWizardForm({ submitOrder }: { submitOrder: (input: CheckoutInpu
           </div>
           <p className="mt-4 rounded-xl bg-muted p-3 text-xs text-muted-foreground">
             {minimumIssues.length
-              ? minimumIssues.map((group) => `${group.store.name}: ${formatM(group.store.minimumOrder)} minimum`).join(" · ")
+              ? minimumIssues
+                  .map(
+                    (group) => `${group.store.name}: ${formatM(group.store.minimumOrder)} minimum`,
+                  )
+                  .join(" · ")
               : `Delivery to ${chosenAddress.area || s.deliveryArea}. ${groups.length} store${groups.length === 1 ? "" : "s"} will fulfill this checkout.`}
           </p>
         </aside>
