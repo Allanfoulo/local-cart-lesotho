@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const expectedConvexHost = new URL(process.env.E2E_EXPECTED_CONVEX_URL!).hostname;
 const expectedAuthHost = expectedConvexHost.replace(/\.convex\.cloud$/i, ".convex.site");
@@ -72,6 +72,15 @@ async function signIn(
   await expect(page).toHaveURL(new RegExp(`${expectedPath}(?:\\?.*)?$`));
 }
 
+async function assignE2EDriver(select: Locator, driverName: string, driverEmail: string) {
+  const options = await select.locator("option").allTextContents();
+  const label =
+    options.find((option) => option.trim() === driverName.trim()) ??
+    options.find((option) => option.trim() === driverEmail.trim());
+  expect(label, "The E2E driver account should be available for assignment").toBeTruthy();
+  await select.selectOption({ label: label! });
+}
+
 test.afterEach(async ({ page }, testInfo) => {
   if (testInfo.status === testInfo.expectedStatus || page.isClosed()) return;
   const screenshot = await page
@@ -127,13 +136,16 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
   const card = addButton.locator("xpath=ancestor::div[contains(@class,'group')]");
   const productName = (await card.getByRole("link").nth(1).innerText()).trim();
   await addButton.click();
-  await expect(page.getByRole("link", { name: "Cart", exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Cart", exact: true }).click();
+  const cartLink = page.getByLabel("Cart");
+  await expect(cartLink).toBeVisible();
+  await expect(cartLink).toContainText("1");
+  await cartLink.click();
   await expect(page.getByRole("heading", { name: "Your cart" })).toBeVisible();
   await expect(page.getByText(productName, { exact: true }).first()).toBeVisible();
   const checkoutLink = page.getByRole("link", { name: "Checkout", exact: true });
+  const increaseQuantity = page.getByRole("button", { name: `Increase ${productName} quantity` });
   for (let attempt = 0; attempt < 30 && (await checkoutLink.count()) === 0; attempt += 1) {
-    await page.getByRole("button", { name: "Increase", exact: true }).click();
+    await increaseQuantity.click();
   }
   await expect(checkoutLink, "The test cart should meet the store minimum").toBeVisible();
   await checkoutLink.click();
@@ -182,10 +194,10 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
 
     const driverAssignment = orderCard.getByLabel(`Assign driver for ${orderNumber}`);
     await expect(driverAssignment).toBeVisible();
-    await driverAssignment.selectOption({ label: credentials.driverName! });
+    await assignE2EDriver(driverAssignment, credentials.driverName!, credentials.driverEmail!);
     await managerPage.getByRole("button", { name: "Driver stops", exact: true }).click();
     const routeDriver = managerPage.getByRole("combobox", { name: "Driver" });
-    await routeDriver.selectOption({ label: credentials.driverName! });
+    await assignE2EDriver(routeDriver, credentials.driverName!, credentials.driverEmail!);
     const moveEarlier = managerPage.getByRole("button", { name: `Move ${orderNumber} earlier` });
     for (let move = 0; move < 50 && (await moveEarlier.isEnabled()); move += 1) {
       await moveEarlier.click();
