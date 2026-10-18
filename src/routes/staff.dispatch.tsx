@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { DispatchOrdersQueue } from "@/components/admin/orders/DispatchOrdersQueue";
@@ -30,25 +30,32 @@ function DispatchWorkspace() {
   const canDispatch = Boolean(access?.isSuperadmin || access?.memberships.some((membership) =>
     membership.storeId === selectedStoreId && ["store_owner", "store_manager", "dispatcher"].includes(membership.role),
   ));
+  const dispatcherOnly = Boolean(
+    !access?.isSuperadmin && access?.memberships.some((membership) => membership.storeId === selectedStoreId && membership.role === "dispatcher") &&
+    !access?.memberships.some((membership) => membership.storeId === selectedStoreId && ["store_owner", "store_manager"].includes(membership.role)),
+  );
+  useEffect(() => setSection(dispatcherOnly ? "stops" : "orders"), [dispatcherOnly, selectedStoreId]);
   return <RequireMembership roles={["store_owner", "store_manager", "dispatcher", "order_staff"]}><>
     <main className="min-h-screen bg-background px-3 py-4 sm:px-5 sm:py-7">
       <div className="mx-auto max-w-5xl">
         <Link
-          to="/demo-login"
+          to="/"
           className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-medium text-muted-foreground hover:text-primary"
         >
           <ArrowLeft className="size-4" />
-          Demo views
+          Marketplace
         </Link>
         <header className="mb-5">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
             REETAPELE · Dispatch
           </p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-            Plan the next stops
+            {canDispatch ? "Plan today’s deliveries" : "Prepare today’s orders"}
           </h1>
           <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-            Prepare orders, assign drivers, and arrange delivery stops from your phone.
+            {canDispatch
+              ? "Assign ready orders to active drivers and arrange their stops from your phone."
+              : "Review new orders, prepare the items, and mark each order ready for dispatch."}
           </p>
         </header>
         <nav className={`mb-5 grid gap-2 ${canDispatch ? "grid-cols-2" : "grid-cols-1"}`} aria-label="Dispatch sections">

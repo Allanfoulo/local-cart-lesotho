@@ -1,8 +1,107 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireSuperadmin } from "./lib/authorization";
+import { requireStoreManager, requireSuperadmin } from "./lib/authorization";
 
 const MAX_STORES = 50;
+
+export const setupProgress = query({
+  args: { storeId: v.id("stores"), now: v.number() },
+  handler: async (ctx, { storeId, now }) => {
+    await requireStoreManager(ctx, storeId);
+    const store = await ctx.db.get(storeId);
+    if (!store) throw new ConvexError("Store not found.");
+
+    const [settings, categories, products, team, invitations] = await Promise.all([
+      ctx.db.query("storeSettings").withIndex("by_store", (q) => q.eq("storeId", storeId)).unique(),
+      ctx.db
+        .query("categories")
+        .withIndex("by_store_enabled_sort", (q) => q.eq("storeId", storeId).eq("enabled", true))
+        .take(100),
+      ctx.db
+        .query("products")
+        .withIndex("by_store_available", (q) => q.eq("storeId", storeId).eq("available", true))
+        .take(100),
+      Promise.all(
+        (["store_manager", "order_staff", "catalogue_staff", "dispatcher", "driver"] as const).map(
+          (role) => ctx.db
+            .query("memberships")
+            .withIndex("by_store_role_status", (q) =>
+              q.eq("storeId", storeId).eq("role", role).eq("status", "active"),
+            )
+            .first(),
+        ),
+      ),
+      ctx.db
+        .query("staffInvitations")
+        .withIndex("by_store_email", (q) => q.eq("storeId", storeId))
+        .order("desc")
+        .take(100),
+    ]);
+
+    const deliveryReady = Boolean(
+      settings?.deliveryAreas.length &&
+        settings.deliveryAreas.includes(settings.defaultDeliveryArea),
+    );
+    const availableProducts = products.filter((product) =>
+      categories.some((category) => category._id === product.categoryId),
+    );
+    const profileReady = Boolean(
+      store.name.trim() &&
+        store.tagline.trim() &&
+        store.phone.trim() &&
+        store.address.trim() &&
+        store.openingHours.trim(),
+    );
+    const paymentReady = Boolean(
+      settings && (settings.cashOnDeliveryEnabled || settings.mobileMoneyEnabled),
+    );
+    const hasStaff = team.some(Boolean);
+    const hasInvite = invitations.some(
+      (invitation) =>
+        invitation.role !== "store_owner" &&
+        ["pending", "sent"].includes(invitation.status) &&
+        invitation.expiresAt > now,
+    );
+
+    return {
+      store: {
+        id: store._id,
+        name: store.name,
+        slug: store.slug,
+        tagline: store.tagline,
+        phone: store.phone,
+        address: store.address,
+        openingHours: store.openingHours,
+        enabled: store.enabled,
+      },
+      preview: {
+        deliveryArea: settings?.defaultDeliveryArea ?? "Not set",
+        paymentMethods: settings
+          ? [
+              settings.cashOnDeliveryEnabled ? "Cash on delivery" : null,
+              settings.mobileMoneyEnabled ? "Manual mobile money" : null,
+            ].filter((method): method is string => method !== null)
+          : [],
+        products: availableProducts
+          .slice(0, 4)
+          .map(({ name, price, unit }) => ({ name, price, unit })),
+      },
+      steps: {
+        profile: profileReady,
+        delivery: deliveryReady,
+        payment: paymentReady,
+        catalogue: categories.length > 0 && availableProducts.length > 0,
+        team: hasStaff || hasInvite,
+      },
+      readyToPublish:
+        profileReady &&
+        deliveryReady &&
+        paymentReady &&
+        categories.length > 0 &&
+        availableProducts.length > 0,
+    };
+  },
+});
 
 function cleanText(value: string, label: string, maxLength: number) {
   const cleaned = value.trim();
@@ -39,6 +138,14 @@ export const listForPlatform = query({
         settings.deliveryAreas.length > 0 &&
         settings.deliveryAreas.includes(settings.defaultDeliveryArea),
       );
+      const profileReady = Boolean(
+        store.name.trim() &&
+          store.tagline.trim() &&
+          store.phone.trim() &&
+          store.address.trim() &&
+          store.openingHours.trim(),
+      );
+      const paymentReady = Boolean(settings && (settings.cashOnDeliveryEnabled || settings.mobileMoneyEnabled));
       const categories = await ctx.db.query("categories")
         .withIndex("by_store_enabled_sort", (q) => q.eq("storeId", store._id).eq("enabled", true))
         .take(100);
@@ -60,7 +167,14 @@ export const listForPlatform = query({
           hasOwner: Boolean(ownerMembership),
           hasActiveCategory: categories.length > 0,
           activeProductCount,
-          readyToPublish: Boolean(ownerMembership && deliverySettingsReady && categories.length && activeProductCount),
+          readyToPublish: Boolean(
+            ownerMembership &&
+              profileReady &&
+              deliverySettingsReady &&
+              paymentReady &&
+              categories.length &&
+              activeProductCount,
+          ),
         },
       };
     }));
@@ -139,6 +253,9 @@ export const setEnabled = mutation({
     if (!store) throw new ConvexError("Store not found.");
     if (store.enabled === enabled) return null;
     if (enabled) {
+      if (!store.name.trim() || !store.tagline.trim() || !store.phone.trim() || !store.address.trim() || !store.openingHours.trim()) {
+        throw new ConvexError("Complete the store profile, contact details, address, and opening hours before publishing.");
+      }
       const owner = await ctx.db.query("memberships")
         .withIndex("by_store_role_status", (q) => q.eq("storeId", storeId).eq("role", "store_owner").eq("status", "active"))
         .first();
@@ -148,6 +265,9 @@ export const setEnabled = mutation({
         .unique();
       if (!settings || !settings.deliveryAreas.length || !settings.deliveryAreas.includes(settings.defaultDeliveryArea)) {
         throw new ConvexError("Complete the store delivery settings before publishing it.");
+      }
+      if (!settings.cashOnDeliveryEnabled && !settings.mobileMoneyEnabled) {
+        throw new ConvexError("Enable at least one supported payment method before publishing this store.");
       }
       const categories = await ctx.db.query("categories")
         .withIndex("by_store_enabled_sort", (q) => q.eq("storeId", storeId).eq("enabled", true))

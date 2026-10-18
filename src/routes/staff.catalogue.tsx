@@ -31,11 +31,11 @@ function CatalogueWorkspace() {
     <main className="min-h-screen bg-background px-4 py-5 sm:px-6 sm:py-8">
       <div className="mx-auto max-w-6xl">
         <Link
-          to="/demo-login"
+          to="/"
           className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-medium text-muted-foreground hover:text-primary"
         >
           <ArrowLeft className="size-4" />
-          Demo views
+          Marketplace
         </Link>
         <header className="mb-5">
           <div className="mb-3"><WorkspaceSwitcher /></div>
@@ -46,7 +46,7 @@ function CatalogueWorkspace() {
             Stock and promotions
           </h1>
         </header>
-        <nav className="mb-6 flex gap-2" aria-label="Catalogue sections">
+        <nav className="mb-6 flex gap-2 overflow-x-auto pb-1" aria-label="Catalogue sections">
           {(["products", "offers"] as const).map((key) => (
             <button
               key={key}

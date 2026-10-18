@@ -25,6 +25,7 @@ import { CatalogueManagement } from "@/components/admin/CatalogueManagement";
 import { OffersManagement } from "@/components/admin/OffersManagement";
 import { MembershipManagement } from "@/components/admin/MembershipManagement";
 import { StoresManagement } from "@/components/admin/StoresManagement";
+import { OwnerSetupChecklist } from "@/components/admin/OwnerSetupChecklist";
 import { ManagementStoreSelector } from "@/components/admin/ManagementStoreSelector";
 import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
 import {
@@ -103,6 +104,10 @@ export function StaffWorkspace({ initialStoreId }: { initialStoreId?: string }) 
   const preparationStaffForStore = store.preparationStaff.filter((staff) => staff.storeIds.includes(selectedOrderStoreId));
   const navigation = access?.isSuperadmin ? [...sections, ["stores", "Stores", StoreIcon] as const] : sections;
   const heading = navigation.find(([id]) => id === section)?.[1] ?? "Today";
+  const isStoreAdmin = access?.memberships.some((membership) =>
+    membership.storeId === selectedOrderStoreId && membership.status === "active" &&
+    (membership.role === "store_owner" || membership.role === "store_manager"),
+  ) ?? false;
 
   useEffect(() => {
     if (!access || !initialStoreId || !access.stores.some((item) => item.id === initialStoreId)) return;
@@ -157,6 +162,13 @@ export function StaffWorkspace({ initialStoreId }: { initialStoreId?: string }) 
       )}
       {section === "overview" && (
         <div className="space-y-8">
+          {isStoreAdmin && !access?.isSuperadmin && <OwnerSetupChecklist
+            storeId={selectedOrderStoreId}
+            onOpenSection={(nextSection) => {
+              store.setManagementStore(selectedOrderStoreId);
+              setSection(nextSection);
+            }}
+          />}
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Metric
               label="New orders"
