@@ -30,7 +30,7 @@ export function QuantityStepper({
       >
         <Minus className="size-4" />
       </Button>
-      <span className="min-w-12 text-center text-sm font-semibold tabular-nums">
+      <span className="min-w-12 text-center text-sm font-semibold tabular-nums" aria-live="polite">
         {value}
         {suffix ? <span className="text-muted-foreground"> {suffix}</span> : null}
       </span>

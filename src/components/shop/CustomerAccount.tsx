@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveDashboardNavigation } from "@/components/layout/ResponsiveDashboardNavigation";
 import {
   useAppStore,
@@ -66,7 +67,9 @@ export function CustomerAccount({ initialSection = "profile" }: { initialSection
   if (isLoading)
     return (
       <main className="mx-auto max-w-xl px-4 py-16 text-center" role="status">
-        Loading your account…
+        <p className="sr-only">Loading your account</p>
+        <Skeleton className="mx-auto h-8 w-48" aria-hidden="true" />
+        <Skeleton className="mx-auto mt-3 h-4 w-64 max-w-full" aria-hidden="true" />
       </main>
     );
   if (!isAuthenticated)
@@ -195,12 +198,7 @@ export function CustomerAccount({ initialSection = "profile" }: { initialSection
                 </Link>
               </div>
               {ownOrders === undefined ? (
-                <p
-                  className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground"
-                  role="status"
-                >
-                  Loading your orders…
-                </p>
+                <OrdersLoadingSkeleton />
               ) : myOrders.length ? (
                 <div className="space-y-4">
                   {myOrders.map((order) => (
@@ -311,7 +309,7 @@ export function CustomerAccount({ initialSection = "profile" }: { initialSection
                           variant="ghost"
                           className="size-11 shrink-0"
                           aria-label={`Remove ${product!.name} from favourites`}
-                          onClick={() => s.toggleFavourite(product!.id)}
+                          onClick={() => void s.toggleFavourite(product!.id)}
                         >
                           <Heart className="size-4 fill-current text-primary" />
                         </Button>
@@ -545,6 +543,30 @@ function Empty({ title, body, action }: { title: string; body: string; action: s
         {action}
         <ChevronRight className="size-4" />
       </Link>
+    </div>
+  );
+}
+
+function OrdersLoadingSkeleton() {
+  return (
+    <div className="space-y-4" role="status" aria-busy="true">
+      <p className="sr-only">Loading your orders</p>
+      {Array.from({ length: 2 }, (_, index) => (
+        <article key={index} className="space-y-4 rounded-2xl border bg-card p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-28" />
+              <Skeleton className="h-4 w-40" />
+            </div>
+            <Skeleton className="h-8 w-28 rounded-full" />
+          </div>
+          <Skeleton className="h-4 w-full" />
+          <div className="flex justify-between border-t pt-3">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-5 w-16" />
+          </div>
+        </article>
+      ))}
     </div>
   );
 }

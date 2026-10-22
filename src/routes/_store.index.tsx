@@ -70,33 +70,37 @@ function HomePage() {
 
       <section>
         <SectionHead title="Local stores" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {stores.map((store) => (
-            <Link
-              key={store.id}
-              to="/shop"
-              search={{ store: store.slug }}
-              className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span
-                className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary-soft text-2xl"
-                aria-hidden
+        {stores.length ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {stores.map((store) => (
+              <Link
+                key={store.id}
+                to="/shop"
+                search={{ store: store.slug }}
+                className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                🏬
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate font-bold">{store.name}</span>
-                <span className="block truncate text-sm text-muted-foreground">
-                  {store.tagline}
+                <span
+                  className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary-soft text-2xl"
+                  aria-hidden
+                >
+                  🏬
                 </span>
-                <span className="mt-1 block text-xs text-muted-foreground">
-                  {formatMShort(store.deliveryFee)} delivery · {store.deliveryAreas.length} delivery
-                  areas
+                <span className="min-w-0">
+                  <span className="block truncate font-bold">{store.name}</span>
+                  <span className="block truncate text-sm text-muted-foreground">
+                    {store.tagline}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {formatMShort(store.deliveryFee)} delivery · {store.deliveryAreas.length}{" "}
+                    delivery areas
+                  </span>
                 </span>
-              </span>
-            </Link>
-          ))}
-        </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <CatalogEmptyState message="No local stores are taking orders yet. Check back soon." />
+        )}
       </section>
 
       <section className="grid grid-cols-3 gap-2 text-center text-xs md:text-sm">
@@ -110,30 +114,34 @@ function HomePage() {
 
       <section>
         <SectionHead title="Shop by category" />
-        <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 md:mx-0 md:grid md:grid-cols-8 md:px-0">
-          {uniqueCategories
-            .sort((a, b) => a.order - b.order)
-            .map((c) => (
-              <Link
-                key={c.id}
-                to="/shop"
-                search={{ category: c.slug }}
-                className="flex w-20 shrink-0 flex-col items-center gap-1.5 md:w-auto"
-              >
-                <span
-                  className={`tile-${c.accent} flex size-16 items-center justify-center overflow-hidden rounded-2xl text-3xl`}
+        {uniqueCategories.length ? (
+          <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 md:mx-0 md:grid md:grid-cols-8 md:px-0">
+            {uniqueCategories
+              .sort((a, b) => a.order - b.order)
+              .map((c) => (
+                <Link
+                  key={c.id}
+                  to="/shop"
+                  search={{ category: c.slug }}
+                  className="flex w-20 shrink-0 flex-col items-center gap-1.5 md:w-auto"
                 >
-                  <img
-                    src={`/categories/${c.slug}.png`}
-                    alt=""
-                    className="size-full object-cover"
-                    loading="lazy"
-                  />
-                </span>
-                <span className="text-center text-xs font-medium leading-tight">{c.name}</span>
-              </Link>
-            ))}
-        </div>
+                  <span
+                    className={`tile-${c.accent} flex size-16 items-center justify-center overflow-hidden rounded-2xl text-3xl`}
+                  >
+                    <img
+                      src={`/categories/${c.slug}.png`}
+                      alt=""
+                      className="size-full object-cover"
+                      loading="lazy"
+                    />
+                  </span>
+                  <span className="text-center text-xs font-medium leading-tight">{c.name}</span>
+                </Link>
+              ))}
+          </div>
+        ) : (
+          <CatalogEmptyState message="Store categories will appear here when catalogues are ready." />
+        )}
       </section>
 
       {specials.length ? (
@@ -149,11 +157,15 @@ function HomePage() {
 
       <section>
         <SectionHead title="Popular right now" />
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {popular.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
+        {popular.length ? (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {popular.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        ) : (
+          <CatalogEmptyState message="Stores are adding products to their shelves. Browse again soon." />
+        )}
       </section>
     </div>
   );
@@ -175,6 +187,14 @@ function Perk({ icon, title }: { icon: React.ReactNode; title: string }) {
     <div className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-3 font-semibold">
       <span className="text-primary">{icon}</span>
       {title}
+    </div>
+  );
+}
+
+function CatalogEmptyState({ message }: { message: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-border bg-card p-5 text-sm text-muted-foreground">
+      {message}
     </div>
   );
 }

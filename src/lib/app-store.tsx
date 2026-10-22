@@ -175,7 +175,7 @@ interface AppStoreValue extends AppState {
   }) => Order[];
   // storefront
   setDeliveryArea: (area: string) => void;
-  toggleFavourite: (productId: string) => void;
+  toggleFavourite: (productId: string) => Promise<void>;
   // orders
   placeOrder: (input: {
     customer: { name: string; phone: string; email?: string };
@@ -508,12 +508,31 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
       setDeliveryArea: (area) => patch((prev) => ({ ...prev, deliveryArea: area })),
 
-      toggleFavourite: (productId) => {
+      toggleFavourite: async (productId) => {
         if (!state.account.signedIn) {
           toast.error("Sign in to save products to your favourites.");
           return;
         }
-        void toggleFavouriteMutation({ productId: productId as Id<"products"> }).catch(reportFailure);
+        const wasSaved = state.favourites.includes(productId);
+        patch((prev) => ({
+          ...prev,
+          favourites: wasSaved
+            ? prev.favourites.filter((id) => id !== productId)
+            : [...prev.favourites, productId],
+        }));
+        try {
+          await toggleFavouriteMutation({ productId: productId as Id<"products"> });
+        } catch (reason) {
+          patch((prev) => ({
+            ...prev,
+            favourites: wasSaved
+              ? prev.favourites.includes(productId)
+                ? prev.favourites
+                : [...prev.favourites, productId]
+              : prev.favourites.filter((id) => id !== productId),
+          }));
+          reportFailure(reason);
+        }
       },
 
       placeOrder: ({ customer, address, payment, discount = 0 }) => {

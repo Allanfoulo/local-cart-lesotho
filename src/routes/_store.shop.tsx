@@ -153,22 +153,43 @@ function ShopPage() {
           ))}
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-border p-10 text-center">
-          <p className="text-4xl">🔍</p>
-          <p className="mt-2 font-semibold">No products found</p>
-          <p className="text-sm text-muted-foreground">
-            Try a different search, category, or store.
+        <section
+          className="rounded-2xl border border-dashed border-border bg-card p-8 text-center sm:p-10"
+          aria-live="polite"
+        >
+          <p className="text-4xl" aria-hidden="true">
+            {scopedProducts.length ? "🔍" : "🧺"}
           </p>
-          {(search.q || search.category || search.instock || search.store) && (
+          <h2 className="mt-2 font-semibold">
+            {scopedProducts.length
+              ? "No products match those filters"
+              : activeStore
+                ? `${activeStore.name} is preparing its catalogue`
+                : "Stores are preparing their catalogues"}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {scopedProducts.length
+              ? "Try a different search, category, or stock filter."
+              : "Check back soon, or browse other stores in the marketplace."}
+          </p>
+          {scopedProducts.length ? (
             <button
               type="button"
               onClick={() => navigate({ search: { sort: search.sort }, replace: true })}
-              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground"
+              className="mt-4 inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground"
             >
               Clear filters
             </button>
-          )}
-        </div>
+          ) : activeStore ? (
+            <button
+              type="button"
+              onClick={() => set({ store: undefined, category: undefined, q: undefined })}
+              className="mt-4 inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground"
+            >
+              Browse all stores
+            </button>
+          ) : null}
+        </section>
       )}
     </div>
   );

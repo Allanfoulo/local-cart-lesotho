@@ -182,6 +182,23 @@
   }
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .storefront-route-enter {
+    animation: storefront-route-enter 160ms ease-out both;
+  }
+
+  @keyframes storefront-route-enter {
+    from {
+      opacity: 0.96;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

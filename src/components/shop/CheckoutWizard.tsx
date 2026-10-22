@@ -1,7 +1,9 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useConvexAuth } from "convex/react";
 import { useMutation } from "convex/react";
-import { Check, ChevronLeft, ChevronRight, MapPin, ShoppingBag } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, LoaderCircle, MapPin, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LocationPicker } from "@/components/delivery/LocationPicker";
@@ -14,7 +16,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 type Method = PaymentMethod;
 type CheckoutInput = {
   checkoutId: string;
-  customer: { name: string; phone: string; email?: string };
+  customer: { name: string; phone: string; email: string };
   address: DeliveryAddress;
   payment: Payment;
   couponCode?: string;
@@ -51,6 +53,137 @@ function pendingCheckoutFor(cartFingerprint: string, current?: PendingCheckout):
     // Keep the generated key in memory for the current page session.
   }
   return pending;
+}
+
+function CustomerAccountGate({ email, onCancel }: { email: string; onCancel: () => void }) {
+  const { signIn } = useAuthActions();
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const [flow, setFlow] = useState<"signUp" | "signIn">("signUp");
+  const [verificationPending, setVerificationPending] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function submitCredentials(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const formData = new FormData(event.currentTarget);
+      formData.set("flow", flow);
+      const result = await signIn("password", formData);
+      if (!result.signingIn) {
+        setVerificationPending(true);
+        setMessage(
+          "We sent a verification code to your email. Enter it below to finish creating your account.",
+        );
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not complete account access.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyEmail(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const formData = new FormData(event.currentTarget);
+      formData.set("flow", "email-verification");
+      await signIn("password", formData);
+      setVerificationPending(false);
+      setMessage("Email verified. Your account is ready; place your order to continue.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not verify your email code.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mb-5 rounded-2xl border bg-card p-4 sm:p-5">
+      <h2 className="text-xl font-semibold">
+        {isAuthenticated
+          ? "Account ready"
+          : verificationPending
+            ? "Verify your email"
+            : flow === "signUp"
+              ? "Create your customer account"
+              : "Sign in to your customer account"}
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        An account is required to place an order. Your cart and checkout details will stay here.
+      </p>
+      {isAuthenticated ? (
+        <p role="status" className="mt-4 rounded-xl bg-primary/10 p-3 text-sm">
+          {message || "Your account is ready. Place your order to continue."}
+        </p>
+      ) : verificationPending ? (
+        <form onSubmit={verifyEmail} className="mt-4 space-y-3">
+          <input name="email" type="hidden" value={email} />
+          <label className="block text-sm font-medium">
+            Email verification code
+            <Input
+              name="code"
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              required
+              className="mt-1.5 min-h-11 text-base"
+            />
+          </label>
+          <Button className="min-h-11 w-full" disabled={busy}>
+            {busy ? "Verifying…" : "Verify email"}
+          </Button>
+        </form>
+      ) : (
+        <form onSubmit={submitCredentials} className="mt-4 space-y-3">
+          <input name="email" type="hidden" value={email} />
+          <label className="block text-sm font-medium">
+            {flow === "signUp" ? "Choose a password" : "Password"}
+            <Input
+              name="password"
+              type="password"
+              autoComplete={flow === "signUp" ? "new-password" : "current-password"}
+              minLength={8}
+              required
+              className="mt-1.5 min-h-11 text-base"
+            />
+          </label>
+          <Button className="min-h-11 w-full" disabled={busy || isLoading}>
+            {busy ? "Please wait…" : flow === "signUp" ? "Create account" : "Sign in"}
+          </Button>
+          <button
+            type="button"
+            className="min-h-11 w-full text-sm font-medium text-primary hover:underline"
+            onClick={() => {
+              setError("");
+              setFlow(flow === "signUp" ? "signIn" : "signUp");
+            }}
+          >
+            {flow === "signUp" ? "I already have an account" : "Create a new account"}
+          </button>
+        </form>
+      )}
+      {message && !isAuthenticated && !verificationPending ? (
+        <p role="status" className="mt-3 text-sm text-primary">
+          {message}
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="mt-3 rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+      {!isAuthenticated ? (
+        <Button type="button" variant="link" className="mt-2 h-11 px-0" onClick={onCancel}>
+          Return to order review
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
 function clearPendingCheckout(checkoutId: string) {
@@ -127,7 +260,9 @@ function CheckoutWizardForm({
   const s = useAppStore();
   const groups = groupCartByStore(s.cart, s.stores.length ? s.stores : [s.shop]);
   const navigate = useNavigate();
+  const { isAuthenticated } = useConvexAuth();
   const [step, setStep] = useState(0);
+  const [accountStep, setAccountStep] = useState(false);
   const checkoutId = useRef<PendingCheckout | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [addressId, setAddressId] = useState(s.savedAddresses[0]?.id ?? "new");
@@ -233,8 +368,8 @@ function CheckoutWizardForm({
         setError("Enter a valid phone number so the store can contact you about delivery.");
         return;
       }
-      if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-        setError("Enter a valid email address or leave the optional field blank.");
+      if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        setError("Enter a valid email address to create or sign in to your customer account.");
         return;
       }
       if (!deliveryAreas.length) {
@@ -277,6 +412,10 @@ function CheckoutWizardForm({
   };
   const place = async () => {
     setError("");
+    if (!isAuthenticated) {
+      setAccountStep(true);
+      return;
+    }
     if (s.cart.length === 0) {
       setError("Your cart is empty.");
       return;
@@ -320,7 +459,7 @@ function CheckoutWizardForm({
       checkoutId.current = pendingCheckoutFor(cartFingerprint, checkoutId.current);
       const receiptId = await submitOrder({
         checkoutId: checkoutId.current.checkoutId,
-        customer: { name: name.trim(), phone: phone.trim(), email: email.trim() || undefined },
+        customer: { name: name.trim(), phone: phone.trim(), email: email.trim() },
         address: finalAddress,
         payment,
         ...(activeCoupon ? { couponCode: activeCoupon } : {}),
@@ -416,11 +555,12 @@ function CheckoutWizardForm({
                     />
                   </label>
                   <label className="text-sm font-medium sm:col-span-2">
-                    Email (optional)
+                    Email address (required for your account)
                     <Input
                       type="email"
                       autoComplete="email"
                       inputMode="email"
+                      required
                       className="mt-1.5 min-h-11"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -508,7 +648,24 @@ function CheckoutWizardForm({
                     </button>
                   </div>
                 )}
-                {addressId === "new" ? (
+                {!deliveryAreas.length ? (
+                  <div
+                    role="alert"
+                    className="rounded-xl border border-warning/40 bg-warning/15 p-4 text-sm"
+                  >
+                    <p className="font-semibold">These stores do not share a delivery area.</p>
+                    <p className="mt-1 text-muted-foreground">
+                      Review your basket and choose stores that deliver to the same area to place
+                      one checkout.
+                    </p>
+                    <Link
+                      to="/cart"
+                      className="mt-3 inline-flex min-h-11 items-center font-semibold text-primary underline underline-offset-4"
+                    >
+                      Review basket
+                    </Link>
+                  </div>
+                ) : addressId === "new" ? (
                   <LocationPicker value={address} areas={deliveryAreas} onChange={setDelivery} />
                 ) : (
                   <div className="rounded-xl border bg-card p-4">
@@ -680,6 +837,9 @@ function CheckoutWizardForm({
           )}
           {step === 2 && (
             <section>
+              {accountStep && (
+                <CustomerAccountGate email={email.trim()} onCancel={() => setAccountStep(false)} />
+              )}
               <h2 className="text-xl font-semibold">Check your order</h2>
               <div className="mt-4 rounded-2xl border bg-card p-4">
                 <label htmlFor="checkout-coupon" className="text-sm font-semibold">
@@ -817,15 +977,25 @@ function CheckoutWizardForm({
                 Continue
                 <ChevronRight className="size-4" />
               </Button>
-            ) : (
+            ) : !accountStep || isAuthenticated ? (
               <Button
                 className="min-h-12 w-full sm:w-auto"
                 onClick={() => void place()}
                 disabled={submitting}
+                aria-busy={submitting}
               >
-                {submitting ? "Placing order…" : `Place order · ${formatM(total)}`}
+                {submitting ? (
+                  <>
+                    <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                    Placing order…
+                  </>
+                ) : !isAuthenticated ? (
+                  "Create account to place order"
+                ) : (
+                  `Place order · ${formatM(total)}`
+                )}
               </Button>
-            )}
+            ) : null}
           </div>
         </section>
         <aside className="h-fit rounded-2xl border bg-card p-5 lg:sticky lg:top-6">

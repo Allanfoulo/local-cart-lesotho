@@ -218,6 +218,65 @@ test("store managers can update store settings but cannot control platform publi
   expect(persisted.settings).toMatchObject({ deliveryFee: 8, minimumOrder: 20, deliveryAreas: ["Maseru", "Roma"], defaultDeliveryArea: "Roma", mobileMoneyEnabled: false });
 });
 
+test("store setup progress is private and reflects setup, catalogue, and team readiness", async () => {
+  const t = convexTest(schema, modules);
+  const fixture = await t.run(async (ctx) => {
+    const ownerId = await user(ctx, "setup-owner@example.test");
+    const outsiderId = await user(ctx, "setup-outsider@example.test");
+    const staffId = await user(ctx, "setup-staff@example.test");
+    const storeId = await store(ctx, "Setup Store");
+    await ctx.db.insert("memberships", { userId: ownerId, storeId, role: "store_owner", status: "active", grantedAt: Date.now() });
+    return { ownerId, outsiderId, staffId, storeId };
+  });
+  const owner = t.withIdentity(identity(fixture.ownerId, "setup-owner@example.test"));
+  const outsider = t.withIdentity(identity(fixture.outsiderId, "setup-outsider@example.test"));
+
+  const initial = await owner.query(api.stores.setupProgress, { storeId: fixture.storeId, now: Date.now() });
+  expect(initial.steps).toEqual({ profile: true, delivery: false, payment: false, catalogue: false, team: false });
+  expect(initial.readyToPublish).toBe(false);
+  expect(initial.preview).toMatchObject({ deliveryArea: "Not set", paymentMethods: [], products: [] });
+  await expect(outsider.query(api.stores.setupProgress, { storeId: fixture.storeId, now: Date.now() })).rejects.toThrow(/do not have access/i);
+
+  await t.run(async (ctx) => {
+    await seedSettings(ctx, fixture.storeId);
+    await seedProduct(ctx, fixture.storeId, "First product");
+    await ctx.db.insert("memberships", { userId: fixture.staffId, storeId: fixture.storeId, role: "order_staff", status: "active", grantedAt: Date.now() });
+  });
+  const complete = await owner.query(api.stores.setupProgress, { storeId: fixture.storeId, now: Date.now() });
+  expect(complete.steps).toEqual({ profile: true, delivery: true, payment: true, catalogue: true, team: true });
+  expect(complete.readyToPublish).toBe(true);
+  expect(complete.preview).toMatchObject({
+    deliveryArea: "Maseru",
+    paymentMethods: ["Cash on delivery", "Manual mobile money"],
+    products: [{ name: "First product", price: 10, unit: "each" }],
+  });
+});
+
+test("store publication enforces complete profile and at least one supported payment method", async () => {
+  const t = convexTest(schema, modules);
+  const fixture = await t.run(async (ctx) => {
+    const adminId = await user(ctx, "publish-admin@example.test");
+    const ownerId = await user(ctx, "publish-owner@example.test");
+    await ctx.db.insert("memberships", { userId: adminId, role: "superadmin", status: "active", grantedAt: Date.now() });
+    const storeId = await store(ctx, "Ready Store");
+    await ctx.db.patch(storeId, { enabled: false, tagline: "  " });
+    await ctx.db.insert("memberships", { userId: ownerId, storeId, role: "store_owner", status: "active", grantedAt: Date.now() });
+    await seedSettings(ctx, storeId);
+    await seedProduct(ctx, storeId, "First product");
+    const settings = await ctx.db.query("storeSettings").withIndex("by_store", (q) => q.eq("storeId", storeId)).unique();
+    await ctx.db.patch(settings!._id, { cashOnDeliveryEnabled: false, mobileMoneyEnabled: false });
+    return { adminId, storeId, settingsId: settings!._id };
+  });
+  const admin = t.withIdentity(identity(fixture.adminId, "publish-admin@example.test"));
+
+  await expect(admin.mutation(api.stores.setEnabled, { storeId: fixture.storeId, enabled: true })).rejects.toThrow(/profile/i);
+  await t.run(async (ctx) => {
+    await ctx.db.patch(fixture.storeId, { tagline: "Local groceries" });
+  });
+  await expect(admin.mutation(api.stores.setEnabled, { storeId: fixture.storeId, enabled: true })).rejects.toThrow(/payment method/i);
+  await expect(t.run(async (ctx) => await ctx.db.get(fixture.storeId))).resolves.toMatchObject({ enabled: false });
+});
+
 test("staff invitations verify email, grant only the invited store role, and expire without granting access", async () => {
   const t = convexTest(schema, modules);
   const token = "single-use-invite-token";
@@ -393,9 +452,10 @@ test("managers can reject only a newly received order and persist its customer t
   expect(persisted.event).toMatchObject({ eventType: "OrderStatusChanged", status: "rejected", actorId: fixture.managerId, version: 1 });
 });
 
-test("guest checkout splits multiple stores into separate orders and writes matching events", async () => {
+test("authenticated customer checkout splits multiple stores and rejects guests", async () => {
   const t = convexTest(schema, modules);
   const fixture = await t.run(async (ctx) => {
+    const customerId = await user(ctx, "customer@example.test");
     const storeA = await store(ctx, "Store A");
     const storeB = await store(ctx, "Store B");
     await seedSettings(ctx, storeA);
@@ -407,11 +467,19 @@ test("guest checkout splits multiple stores into separate orders and writes matc
       storeId: storeA, name: "Five maloti off", type: "coupon", value: 5,
       code: "SAVE5", startDate: today, endDate: today, active: true,
     });
-    return { storeA, storeB, productA, productB };
+    return { customerId, storeA, storeB, productA, productB };
   });
 
-  const receipt = await t.mutation(api.orders.placeGuestOrder, {
-    checkoutId: "multi-store-checkout-001", customer: { name: "Guest Customer", phone: "+26650000004" },
+  const checkout = t.withIdentity(identity(fixture.customerId, "customer@example.test"));
+  const customer = { name: "Customer", phone: "+26650000004", email: "customer@example.test" };
+  await expect(t.mutation(api.orders.placeGuestOrder, {
+    checkoutId: "guest-checkout-blocked-001", customer,
+    destination: { area: "Maseru", address: "Main street" }, paymentMethod: "cash_on_delivery",
+    items: [{ productId: fixture.productA, quantity: 1 }],
+  })).rejects.toThrow(/sign in or create a customer account/i);
+
+  const receipt = await checkout.mutation(api.orders.placeGuestOrder, {
+    checkoutId: "multi-store-checkout-001", customer,
     destination: { area: "Maseru", address: "Main street" }, paymentMethod: "cash_on_delivery", couponCode: "save5",
     items: [{ productId: fixture.productA, quantity: 2 }, { productId: fixture.productB, quantity: 1 }],
   });
@@ -421,13 +489,13 @@ test("guest checkout splits multiple stores into separate orders and writes matc
   expect(receipt.total).toBe(35);
   expect(receipt.orders.find((order) => order.storeId === fixture.storeA)).toMatchObject({ subtotal: 20, discount: 5, total: 20 });
   expect(receipt.orders.find((order) => order.storeId === fixture.storeB)).toMatchObject({ subtotal: 10, discount: 0, total: 15 });
-  await expect(t.mutation(api.orders.placeGuestOrder, {
-    checkoutId: "invalid-coupon-checkout-01", customer: { name: "Guest Customer", phone: "+26650000004" },
+  await expect(checkout.mutation(api.orders.placeGuestOrder, {
+    checkoutId: "invalid-coupon-checkout-01", customer,
     destination: { area: "Maseru", address: "Main street" }, paymentMethod: "cash_on_delivery", couponCode: "NOTREAL",
     items: [{ productId: fixture.productA, quantity: 1 }],
   })).rejects.toThrow(/coupon is invalid/i);
-  await expect(t.mutation(api.orders.placeGuestOrder, {
-    checkoutId: "unconfigured-card-checkout", customer: { name: "Guest Customer", phone: "+26650000004" },
+  await expect(checkout.mutation(api.orders.placeGuestOrder, {
+    checkoutId: "unconfigured-card-checkout", customer,
     destination: { area: "Maseru", address: "Main street" }, paymentMethod: "card",
     items: [{ productId: fixture.productA, quantity: 1 }],
   })).rejects.toThrow(/card payments are not configured/i);

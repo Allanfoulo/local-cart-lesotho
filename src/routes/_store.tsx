@@ -1,10 +1,16 @@
 import { Link, Outlet, createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useContext } from "react";
 import { Home, LayoutGrid, MapPin, Package, Search, ShoppingCart, User } from "lucide-react";
 import { useState } from "react";
 
 import { Logo } from "@/components/store/Logo";
 import { ConvexMarketplaceSync } from "@/components/shop/ConvexMarketplaceSync";
 import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
+import {
+  StorefrontCheckoutDataSkeleton,
+  StorefrontHomeSkeleton,
+  StorefrontListingSkeleton,
+} from "@/components/store/StorefrontSkeletons";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -14,16 +20,33 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAppStore } from "@/lib/app-store";
+import { marketplaceCatalogLoadingContext } from "@/lib/marketplace-catalog-context";
 
 export const Route = createFileRoute("/_store")({
   component: StoreLayout,
 });
 
 function StoreLayout() {
+  const layout = <StoreLayoutContent />;
+  return import.meta.env["VITE_CONVEX_URL"] ? (
+    <ConvexMarketplaceSync>{layout}</ConvexMarketplaceSync>
+  ) : (
+    layout
+  );
+}
+
+function StoreLayoutContent() {
   const { shop, cartCount, deliveryArea, setDeliveryArea } = useAppStore();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const catalogLoading = useContext(marketplaceCatalogLoadingContext);
   const isAccount = pathname === "/account";
+  const catalogDependentPage =
+    pathname === "/" ||
+    pathname === "/shop" ||
+    pathname === "/cart" ||
+    pathname === "/checkout" ||
+    pathname.startsWith("/products/");
   const [q, setQ] = useState("");
 
   return (
@@ -34,14 +57,13 @@ function StoreLayout() {
           : "min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0"
       }
     >
-      {import.meta.env["VITE_CONVEX_URL"] ? <ConvexMarketplaceSync /> : null}
       <a
         href="#storefront-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-card focus:px-4 focus:py-3 focus:font-semibold focus:text-foreground focus:shadow-lg"
       >
         Skip to content
       </a>
-      <header className="z-30 border-b border-border bg-background/90 backdrop-blur md:shrink-0 md:sticky md:top-0">
+      <header className="relative z-40 border-b border-border bg-background/90 backdrop-blur md:shrink-0 md:sticky md:top-0">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
           <Link to="/" className="min-w-0 max-w-[75vw] md:max-w-none">
             <Logo name={shop.name} tagline={shop.tagline} />
@@ -120,6 +142,7 @@ function StoreLayout() {
             <Select value={deliveryArea} onValueChange={setDeliveryArea}>
               <SelectTrigger
                 aria-label="Delivery area"
+                disabled={catalogLoading}
                 className="h-11 w-auto min-w-0 max-w-[min(55vw,20rem)] gap-1 border-0 bg-transparent px-1 font-semibold shadow-none"
               >
                 <SelectValue />
@@ -146,7 +169,22 @@ function StoreLayout() {
             : "mx-auto max-w-6xl px-4 py-5"
         }
       >
-        <Outlet />
+        {catalogLoading && catalogDependentPage ? (
+          pathname === "/" ? (
+            <StorefrontHomeSkeleton />
+          ) : pathname === "/shop" || pathname.startsWith("/products/") ? (
+            <StorefrontListingSkeleton />
+          ) : (
+            <StorefrontCheckoutDataSkeleton />
+          )
+        ) : (
+          <div
+            key={pathname}
+            className={isAccount ? "storefront-route-enter h-full" : "storefront-route-enter"}
+          >
+            <Outlet />
+          </div>
+        )}
       </main>
 
       {!isAccount ? (

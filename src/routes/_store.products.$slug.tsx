@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowLeft, Heart } from "lucide-react";
+import { ArrowLeft, Heart, LoaderCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -47,6 +47,7 @@ function ProductPage() {
     (p) => p.slug === slug && (!selectedStore || p.storeId === selectedStore.id),
   );
   const [qty, setQty] = useState(1);
+  const [favouritePending, setFavouritePending] = useState(false);
 
   if (!product)
     return (
@@ -93,9 +94,21 @@ function ProductPage() {
               size="icon"
               className="size-11 shrink-0 rounded-full"
               aria-label={fav ? "Remove from favourites" : "Save to favourites"}
-              onClick={() => toggleFavourite(product.id)}
+              aria-busy={favouritePending}
+              disabled={favouritePending}
+              onClick={() => {
+                setFavouritePending(true);
+                void toggleFavourite(product.id).finally(() => setFavouritePending(false));
+              }}
             >
-              <Heart className={cn("size-5", fav && "fill-destructive text-destructive")} />
+              {favouritePending ? (
+                <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
+              ) : (
+                <Heart
+                  className={cn("size-5", fav && "fill-destructive text-destructive")}
+                  aria-hidden="true"
+                />
+              )}
             </Button>
           </div>
           <div className="flex items-baseline gap-2">

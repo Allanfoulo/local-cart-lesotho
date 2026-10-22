@@ -16,7 +16,7 @@ const paymentMethod = v.union(
 export const placeGuestOrder = mutation({
   args: {
     checkoutId: v.string(),
-    customer: v.object({ name: v.string(), phone: v.string(), email: v.optional(v.string()) }),
+    customer: v.object({ name: v.string(), phone: v.string(), email: v.string() }),
     destination: v.object({
       area: v.string(),
       address: v.string(),
@@ -33,12 +33,22 @@ export const placeGuestOrder = mutation({
   },
   handler: async (ctx, args) => {
     const customerUserId = await getAuthUserId(ctx);
+    if (!customerUserId) {
+      throw new ConvexError("Sign in or create a customer account before placing your order.");
+    }
+    const authUser = await ctx.db.get(customerUserId);
+    const email = args.customer.email.trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new ConvexError("A valid customer email address is required.");
+    }
+    if (!authUser?.email || authUser.email.trim().toLowerCase() !== email) {
+      throw new ConvexError("Sign in with the email address entered for this checkout.");
+    }
     if (args.paymentMethod === "card") throw new ConvexError("Card payments are not configured yet.");
     const checkoutId = args.checkoutId.trim();
     const name = args.customer.name.trim();
     const phone = args.customer.phone.trim();
     const normalizedPhone = phone.replace(/[\s()-]/g, "");
-    const email = args.customer.email?.trim() || undefined;
     const landmark = args.destination.landmark?.trim() || undefined;
     const instructions = args.destination.instructions?.trim() || undefined;
     const area = args.destination.area.trim();
