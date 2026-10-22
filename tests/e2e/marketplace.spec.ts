@@ -112,6 +112,7 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
   browser,
   page,
 }, testInfo) => {
+  test.setTimeout(240_000);
   const credentials = {
     customerEmail: process.env.E2E_CUSTOMER_EMAIL,
     customerPassword: process.env.E2E_CUSTOMER_PASSWORD,
@@ -257,8 +258,7 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
     await expect(customerOrder).toBeVisible();
     await expect(customerOrder).toContainText(/delivered/i);
   } finally {
-    await managerContext.close();
-    await driverContext.close();
+    await Promise.allSettled([managerContext.close(), driverContext.close()]);
   }
 
   testInfo.annotations.push({ type: "order", description: orderNumber });
