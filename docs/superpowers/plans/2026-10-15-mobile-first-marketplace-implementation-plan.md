@@ -12,6 +12,8 @@ The static route/task/role inventory is recorded in [`marketplace-route-baseline
 
 Phase 4 implementation has started with mobile storefront search, skip navigation, shared 44 px mobile touch targets, long-name wrapping, visible focus, and reduced-motion support. TypeScript, focused ESLint, Prettier, `git diff --check`, and the production build pass; Vite had to run outside the restricted sandbox. One repeat build stalled before Vite startup, but a subsequent direct Vite build completed successfully. Visual viewport acceptance could not be performed because no browser surface is available. The full viewport, contrast, keyboard, screen-reader, and performance matrix remains open.
 
+Phase 5 readiness work on 2026-10-22 confirmed the local app responds on port 7093 and `netlify.toml` still publishes `dist/client`. A development operations runbook now documents triage, support, rollback, backup/restore boundaries, and staging acceptance records. The user reported partial staging acceptance on PR #3, including targeted manager and driver delivery flows. The full customer checkout-to-delivery test failed on stale/ambiguous selectors; the selectors have now been corrected locally, but a preview rerun is pending. Current Netlify/Convex settings, credential rotation, alert configuration, and recovery exercise remain open. See [Phase 5 readiness findings](../../phase-5-readiness.md).
+
 ## Phase 0 — Baseline and route inventory
 
 1. Reconcile current routes and shared components with the older role-dashboard and browser-local design docs; mark superseded claims so they do not guide implementation.

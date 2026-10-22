@@ -47,7 +47,9 @@ async function openPreviewAndVerifyDeployment(page: Page): Promise<DeploymentObs
         message: "The preview did not connect to the expected development Convex deployment.",
       })
       .toBe(true);
-    expect([...unexpectedHosts], "The preview contacted an unexpected Convex deployment").toEqual([]);
+    expect([...unexpectedHosts], "The preview contacted an unexpected Convex deployment").toEqual(
+      [],
+    );
   };
 
   await assertDevelopmentDeployment();
@@ -67,7 +69,9 @@ async function signIn(
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   const workspaceChoice = page.getByRole("heading", { name: "Where would you like to go?" });
   if (await workspaceChoice.isVisible({ timeout: 5_000 }).catch(() => false)) {
-    await page.getByRole("button", { name: workspace === "account" ? "My account" : "Staff workspace" }).click();
+    await page
+      .getByRole("button", { name: workspace === "account" ? "My account" : "Staff workspace" })
+      .click();
   }
   await expect(page).toHaveURL(new RegExp(`${expectedPath}(?:\\?.*)?$`));
 }
@@ -127,7 +131,13 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
 
   const customerDeployment = await openPreviewAndVerifyDeployment(page);
   await customerDeployment.assertDevelopmentDeployment();
-  await signIn(page, credentials.customerEmail!, credentials.customerPassword!, "account", "/account");
+  await signIn(
+    page,
+    credentials.customerEmail!,
+    credentials.customerPassword!,
+    "account",
+    "/account",
+  );
   await customerDeployment.assertDevelopmentDeployment();
 
   await page.goto("/shop");
@@ -165,23 +175,35 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
   await page.getByRole("button", { name: /Place order/i }).click();
   await expect(page.getByText("CHECKOUT PLACED")).toBeVisible();
 
-  const confirmationText = await page.locator("main").innerText();
+  const confirmationText = await page.locator("body").innerText();
   const orderNumber = confirmationText.match(/\bREE-[A-Z0-9]+-[A-Z0-9]+\b/)?.[0];
   expect(orderNumber, "The confirmation should show the created order number").toBeTruthy();
-  await expect(page.locator("article").filter({ hasText: orderNumber! })).toContainText(/received/i);
+  await expect(page.locator("article").filter({ hasText: orderNumber! })).toContainText(
+    /received/i,
+  );
   await page.reload();
   await expect(page.getByText("CHECKOUT PLACED")).toBeVisible();
-  await expect(page.locator("article").filter({ hasText: orderNumber! })).toContainText(/received/i);
+  await expect(page.locator("article").filter({ hasText: orderNumber! })).toContainText(
+    /received/i,
+  );
 
   const managerContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const driverContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   try {
     const managerPage = await managerContext.newPage();
     const managerDeployment = await openPreviewAndVerifyDeployment(managerPage);
-    await signIn(managerPage, credentials.managerEmail!, credentials.managerPassword!, "staff", "/admin");
+    await signIn(
+      managerPage,
+      credentials.managerEmail!,
+      credentials.managerPassword!,
+      "staff",
+      "/admin",
+    );
     await managerDeployment.assertDevelopmentDeployment();
     await managerPage.goto("/staff/dispatch");
-    await expect(managerPage.getByRole("heading", { name: "Plan the next stops" })).toBeVisible();
+    await expect(
+      managerPage.getByRole("heading", { name: /Plan today.s deliveries/ }),
+    ).toBeVisible();
 
     const orderCard = managerPage.locator("article").filter({ hasText: orderNumber! });
     await expect(orderCard).toBeVisible();
@@ -207,14 +229,26 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
 
     const driverPage = await driverContext.newPage();
     const driverDeployment = await openPreviewAndVerifyDeployment(driverPage);
-    await signIn(driverPage, credentials.driverEmail!, credentials.driverPassword!, "staff", "/driver");
+    await signIn(
+      driverPage,
+      credentials.driverEmail!,
+      credentials.driverPassword!,
+      "staff",
+      "/driver",
+    );
     await driverDeployment.assertDevelopmentDeployment();
     await driverPage.goto("/driver");
-    const currentStop = driverPage.locator("section[aria-labelledby='current-stop-heading'] article");
+    const currentStop = driverPage.locator(
+      "section[aria-labelledby='current-stop-heading'] article",
+    );
     await expect(currentStop).toContainText(orderNumber!);
     await currentStop.getByRole("button", { name: "Start delivery" }).click();
-    await expect(currentStop.getByRole("button", { name: "Mark delivered" })).toBeVisible();
-    await currentStop.getByRole("button", { name: "Mark delivered" }).click();
+    await currentStop.getByRole("button", { name: "Confirm delivery" }).click();
+    const deliveryConfirmation = driverPage.getByRole("alertdialog");
+    await expect(
+      deliveryConfirmation.getByRole("heading", { name: "Confirm this delivery?" }),
+    ).toBeVisible();
+    await deliveryConfirmation.getByRole("button", { name: "Confirm delivered" }).click();
     await expect(driverPage.getByText(orderNumber!)).toHaveCount(0);
 
     await page.goto("/orders");

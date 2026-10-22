@@ -1,8 +1,14 @@
 # Phase 5 Readiness Findings
 
-Reviewed 2026-10-11. This is a development readiness review; it does not deploy or change production configuration.
+Reviewed 2026-10-22. This is a development/staging readiness review; it does not deploy or change production configuration.
 
-## Verified
+## Verified in this review (2026-10-22)
+
+- `netlify.toml` still builds with `pnpm build` and publishes `dist/client`.
+- The local app responded with HTTP 200 at `http://localhost:7093`.
+- Added [development operations runbook](operations-runbook.md) covering triage, recovery boundaries, support escalation, payment/order incidents, and how to record staging acceptance.
+
+## Previously verified (2026-10-11)
 
 - The Convex development deployment has the expected auth and email variable names configured: `AUTH_EMAIL_FROM`, `INITIAL_SUPERADMIN_EMAIL`, `RESEND_API_KEY`, and `SITE_URL`. Only names were inspected; values were not read or displayed.
 - Netlify build configuration uses `pnpm build` and publishes `dist/client`, matching the configured TanStack Start Vite adapter output.
@@ -13,20 +19,23 @@ Reviewed 2026-10-11. This is a development readiness review; it does not deploy 
 
 ## Launch blockers
 
-- The linked production Convex deployment (`enchanted-aardvark-205`) has no environment variables configured. Production auth, email delivery, and site-origin behavior are therefore unverified. Do not copy development credentials into production.
+- The linked production Convex deployment (`enchanted-aardvark-205`) had no environment variables configured at the 2026-10-11 review. Production auth, email delivery, and site-origin behavior remain unverified; do not copy development credentials into production.
 - `allanfdeveloper.space` is Allan's personal portfolio and is used as the verified Resend sending domain for super-admin email. It is not intended to host the marketplace. For development, use `allanfdeveloper@gmail.com` for support and problem reports. Reminder: purchase a separate marketplace domain later and configure it when ready.
-- The Netlify CLI is authenticated, but to an account whose listed site belongs to a different repository (`arctrd3s/arcflow`). This workspace is not linked to a REETAPELE Netlify site. The file-level build and publish settings are verified, but no REETAPELE site's `VITE_CONVEX_URL`, deploy settings, or preview integration could be verified through that account.
+- At the 2026-10-11 review, the Netlify CLI account's listed site belonged to a different repository (`arctrd3s/arcflow`), and this workspace was not linked to a REETAPELE Netlify site. Current read-only Netlify status attempts could not refresh that state: the CLI reports an invalid URL and cannot write its update-check config in the user profile. A direct preview request also failed through the configured proxy. No REETAPELE site's `VITE_CONVEX_URL`, deploy settings, or preview integration could be verified.
 - Credentials previously exposed in verbose development CLI output have not been rotated. No Resend or Convex account dashboard is connected here, so replacement and revocation could not be completed. Rotate those values before relying on the affected credentials.
-- Monitoring, backup/recovery, and support procedures have not been demonstrated or documented as operational. Confirm these with the deployment and operations owners before launch.
-- A staff acceptance walkthrough has not been run with real store, manager, order staff, dispatcher, and driver accounts.
-- The GitHub PR integration generated a Netlify Deploy Preview at `https://deploy-preview-2--local-cart-lesotho.netlify.app`; its Netlify status check passed. An unauthenticated HTTP request redirects to Netlify Edge Access login, so the signed-in app journey still needs to be checked by someone with preview access. The Netlify CLI session in this workspace belongs to a different account/site, so preview-specific environment variables could not be inspected here.
+- The runbook now documents monitoring and recovery procedures, but dashboard alerts/log streams, backup schedules, recovery exercises, and the support escalation path have not been verified as configured or operational. Confirm these with the deployment and operations owners before launch.
+- Partial staging acceptance was reported for PR #3 at head `fad5cc1` on 2026-10-22 ([PR test report](https://github.com/Allanfoulo/local-cart-lesotho/pull/3)): the mobile marketplace, manager checklist/private storefront preview, catalogue search and filters, marketplace links, driver workspace, manager preparation/driver assignment, and driver delivery confirmation passed. Three synthetic development orders were created and all reached Delivered. The complete customer checkout walkthrough did not pass: the committed receipt selector was ambiguous, and after a local selector adjustment the run timed out before staff fulfillment; the test also expected outdated dispatch and delivery labels. This review fixed those test selectors locally and confirmed Playwright test discovery, but did not rerun the full journey against the preview.
+- The current preview and PR checks could not be refreshed from this workspace. The preview URL is blocked by the configured proxy, and GitHub CLI reports invalid saved authentication tokens.
+- A 2026-10-11 review recorded a passing Netlify status check for `https://deploy-preview-2--local-cart-lesotho.netlify.app`; an unauthenticated request redirected to Netlify Edge Access login. This does not establish the current PR preview's status.
 - Payment-provider integration remains deferred as previously agreed. Production payment methods and related customer messaging must reflect the supported methods until a provider is integrated.
 
-## Local quality gate
+## Previously recorded quality gate (2026-10-11)
 
 - `pnpm test`: passed, 14 tests.
 - `pnpm lint`: failed because the repository's Prettier checks report 1,368 formatting errors and 14 warnings in maintained files after generated output and nested worktrees are excluded. This is a broad existing formatting baseline; no repository-wide formatting was applied during this review.
 - TypeScript check and production build passed during the Phase 3 verification. The Netlify output locations above were confirmed in this review.
+
+The user reported that PR #3 head `fad5cc1` passed 16/16 local Convex tests, the TypeScript check, production build, and Playwright test discovery on 2026-10-22. These checks were not rerun by this review.
 
 ## Acceptance walkthrough checklist
 
@@ -40,4 +49,4 @@ Run after production configuration is ready, using non-production test data firs
 6. Exercise rejection, cancellation, duplicate requests, and stale updates; confirm the event history and displayed state remain consistent.
 7. Record the result, deployment version, test accounts/roles (without passwords or tokens), and any defects in the operational runbook.
 
-Phase 5 remains open until production settings are verified, exposed credentials are rotated, critical operational procedures are confirmed, and staff complete this walkthrough.
+Phase 5 remains open until the correct Netlify site and Convex production settings are verified by their owner, exposed credentials are rotated, operational alerts and recovery are exercised, and the full staging checkout-to-delivery walkthrough passes with the updated test. No production deployment or production configuration was changed during this review.
