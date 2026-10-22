@@ -27,9 +27,15 @@ function StoreLayout() {
   return (
     <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
       {import.meta.env["VITE_CONVEX_URL"] ? <ConvexMarketplaceSync /> : null}
-      <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
+      <a
+        href="#storefront-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-card focus:px-4 focus:py-3 focus:font-semibold focus:text-foreground focus:shadow-lg"
+      >
+        Skip to content
+      </a>
+      <header className="z-30 border-b border-border bg-background/90 backdrop-blur md:sticky md:top-0">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-          <Link to="/">
+          <Link to="/" className="min-w-0 max-w-[75vw] md:max-w-none">
             <Logo name={shop.name} tagline={shop.tagline} />
           </Link>
           <form
@@ -41,6 +47,7 @@ function StoreLayout() {
           >
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              aria-label="Search products"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search tomatoes, bread, milk…"
@@ -54,23 +61,59 @@ function StoreLayout() {
           </nav>
           <Link
             to="/cart"
-            className="relative ml-auto flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground md:ml-0"
-            aria-label="Cart"
+            className="relative ml-auto flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground md:ml-0"
+            aria-label={cartCount > 0 ? `Cart, ${cartCount} items` : "Cart, empty"}
           >
             <ShoppingCart className="size-5" />
             {cartCount > 0 ? (
-              <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-promo text-[10px] font-bold text-promo-foreground">
+              <span
+                aria-hidden="true"
+                className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-promo text-[10px] font-bold text-promo-foreground"
+              >
                 {cartCount}
               </span>
             ) : null}
           </Link>
         </div>
+        <form
+          className="mx-auto flex max-w-6xl px-4 pb-2.5 md:hidden"
+          role="search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            navigate({ to: "/shop", search: { q } });
+          }}
+        >
+          <div className="relative min-w-0 flex-1">
+            <Search
+              className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              type="search"
+              aria-label="Search products"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search products"
+              className="h-11 rounded-full bg-card pl-9"
+            />
+          </div>
+          <button
+            type="submit"
+            aria-label="Search"
+            className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Search className="size-4" aria-hidden="true" />
+          </button>
+        </form>
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 pb-2.5 text-sm">
           <div className="flex min-w-0 items-center gap-2">
             <MapPin className="size-4 shrink-0 text-primary" />
             <span className="shrink-0 text-muted-foreground">Deliver to</span>
             <Select value={deliveryArea} onValueChange={setDeliveryArea}>
-              <SelectTrigger className="h-7 w-auto min-w-0 gap-1 border-0 bg-transparent px-1 font-semibold shadow-none">
+              <SelectTrigger
+                aria-label="Delivery area"
+                className="h-11 w-auto min-w-0 max-w-[min(55vw,20rem)] gap-1 border-0 bg-transparent px-1 font-semibold shadow-none"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -86,7 +129,7 @@ function StoreLayout() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-5">
+      <main id="storefront-content" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-5">
         <Outlet />
       </main>
 
@@ -110,7 +153,10 @@ function StoreLayout() {
         </div>
       </footer>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] md:hidden">
+      <nav
+        aria-label="Storefront"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
+      >
         <TabLink to="/" icon={<Home className="size-5" />} label="Home" />
         <TabLink to="/shop" icon={<LayoutGrid className="size-5" />} label="Shop" />
         <TabLink
@@ -150,7 +196,7 @@ function TabLink({
     <Link
       to={to}
       activeOptions={{ exact: to === "/" }}
-      className="flex min-h-12 flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-medium text-muted-foreground"
+      className="flex min-h-12 flex-col items-center justify-center gap-0.5 py-1 text-xs font-medium text-muted-foreground"
       activeProps={{ className: "text-primary" }}
     >
       {icon}

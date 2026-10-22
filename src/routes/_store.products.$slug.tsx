@@ -85,7 +85,9 @@ function ProductPage() {
         <ProductTile emoji={product.emoji} name={product.name} size="lg" className="rounded-3xl" />
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-3">
-            <h1 className="text-3xl font-extrabold tracking-tight">{product.name}</h1>
+            <h1 className="min-w-0 break-words text-3xl font-extrabold tracking-tight">
+              {product.name}
+            </h1>
             <Button
               variant="outline"
               size="icon"
