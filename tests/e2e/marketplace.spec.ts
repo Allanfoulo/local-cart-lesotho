@@ -149,6 +149,7 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
   const cartLink = page.getByLabel("Cart");
   await expect(cartLink).toBeVisible();
   await expect(cartLink).toContainText("1");
+  await expect(page.getByText(`${productName} added to cart`, { exact: true })).toBeHidden();
   await cartLink.click();
   await expect(page.getByRole("heading", { name: "Your cart" })).toBeVisible();
   await expect(page.getByText(productName, { exact: true }).first()).toBeVisible();
