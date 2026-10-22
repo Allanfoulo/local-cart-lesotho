@@ -43,4 +43,4 @@
 - Check contrast of status colors and text, keyboard order, dialogs/drawers, browser back behavior, and screen-reader announcements through manual interaction.
 - Establish catalogue/checkout performance measurements on a representative phone and constrained network before optimizing.
 
-The current environment has no available browser surface for visual review. A production build passed outside the restricted sandbox; the latest repeat after a CSS-only native-select sizing change stalled before Vite startup and was stopped without a diagnostic. The sandbox itself denies a Vite subprocess spawn with `spawn EPERM`.
+The current environment has no available browser surface for visual review. The production build passed when Vite ran outside the restricted sandbox. One repeat stalled before Vite startup; a subsequent direct Vite build completed successfully. The sandbox itself denies a Vite subprocess spawn with `spawn EPERM`.
