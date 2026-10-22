@@ -4,6 +4,7 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { ArrowLeftRight } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { resolveWorkspaceDestination, type WorkspaceRole } from "@/lib/auth/workspace-destination";
+import { cn } from "@/lib/utils";
 
 type WorkspaceLink = {
   key: string;
@@ -23,7 +24,13 @@ const roleLabels: Record<WorkspaceRole, string> = {
   driver: "Driver deliveries",
 };
 
-export function WorkspaceSwitcher({ className = "" }: { className?: string }) {
+export function WorkspaceSwitcher({
+  className = "",
+  mobileMenuAlign = "end",
+}: {
+  className?: string;
+  mobileMenuAlign?: "start" | "end";
+}) {
   const { isAuthenticated } = useConvexAuth();
   const access = useQuery(api.memberships.currentAccess, {});
   const details = useRef<HTMLDetailsElement>(null);
@@ -64,7 +71,10 @@ export function WorkspaceSwitcher({ className = "" }: { className?: string }) {
       </summary>
       <nav
         aria-label="Available workspaces"
-        className="absolute right-0 z-50 mt-2 grid min-w-64 max-w-[calc(100vw-2rem)] gap-1 rounded-2xl border border-border bg-card p-2 shadow-lg"
+        className={cn(
+          "absolute z-50 mt-2 grid w-[min(18rem,calc(100vw-2rem))] gap-1 rounded-2xl border border-border bg-card p-2 shadow-lg",
+          mobileMenuAlign === "start" ? "left-0 right-auto md:left-auto md:right-0" : "right-0",
+        )}
       >
         <Link
           to="/account"

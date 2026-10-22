@@ -32,4 +32,4 @@ Move the main section navigation in the customer account and staff workspace int
 
 ## Implementation notes
 
-Adapt `src/components/ui/sidebar.tsx` through its exported provider, sidebar, trigger, menu, and inset components. Keep section state in the existing dashboard components. Do not use sidebar visibility as an authorization boundary.
+Use a shared responsive section-navigation shell in `src/components/layout/ResponsiveDashboardNavigation.tsx`, with the existing button and sheet primitives. Keep section state in the existing dashboard components. Do not use sidebar visibility as an authorization boundary.

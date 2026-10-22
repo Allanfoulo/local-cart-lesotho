@@ -1,4 +1,4 @@
-import { Link, Outlet, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, Outlet, createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Home, LayoutGrid, MapPin, Package, Search, ShoppingCart, User } from "lucide-react";
 import { useState } from "react";
 
@@ -22,10 +22,18 @@ export const Route = createFileRoute("/_store")({
 function StoreLayout() {
   const { shop, cartCount, deliveryArea, setDeliveryArea } = useAppStore();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const isAccount = pathname === "/account";
   const [q, setQ] = useState("");
 
   return (
-    <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
+    <div
+      className={
+        isAccount
+          ? "min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:flex md:h-dvh md:flex-col md:overflow-hidden md:pb-0"
+          : "min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0"
+      }
+    >
       {import.meta.env["VITE_CONVEX_URL"] ? <ConvexMarketplaceSync /> : null}
       <a
         href="#storefront-content"
@@ -33,7 +41,7 @@ function StoreLayout() {
       >
         Skip to content
       </a>
-      <header className="z-30 border-b border-border bg-background/90 backdrop-blur md:sticky md:top-0">
+      <header className="z-30 border-b border-border bg-background/90 backdrop-blur md:shrink-0 md:sticky md:top-0">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
           <Link to="/" className="min-w-0 max-w-[75vw] md:max-w-none">
             <Logo name={shop.name} tagline={shop.tagline} />
@@ -129,29 +137,39 @@ function StoreLayout() {
         </div>
       </header>
 
-      <main id="storefront-content" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-5">
+      <main
+        id="storefront-content"
+        tabIndex={-1}
+        className={
+          isAccount
+            ? "mx-auto min-h-0 w-full max-w-6xl flex-1 overflow-hidden px-4 py-0"
+            : "mx-auto max-w-6xl px-4 py-5"
+        }
+      >
         <Outlet />
       </main>
 
-      <footer className="mx-auto hidden max-w-6xl border-t border-border px-4 py-8 text-sm text-muted-foreground md:block">
-        <div className="flex flex-wrap justify-between gap-4">
-          <div>
-            <p className="font-semibold text-foreground">{shop.name}</p>
-            <p>{shop.address}</p>
-            <p>{shop.openingHours}</p>
+      {!isAccount ? (
+        <footer className="mx-auto hidden max-w-6xl border-t border-border px-4 py-8 text-sm text-muted-foreground md:block">
+          <div className="flex flex-wrap justify-between gap-4">
+            <div>
+              <p className="font-semibold text-foreground">{shop.name}</p>
+              <p>{shop.address}</p>
+              <p>{shop.openingHours}</p>
+            </div>
+            <div className="text-right">
+              <p>Call or WhatsApp {shop.phone}</p>
+              <Link
+                to="/admin"
+                search={{ store: undefined }}
+                className="underline-offset-4 hover:underline"
+              >
+                Staff login
+              </Link>
+            </div>
           </div>
-          <div className="text-right">
-            <p>Call or WhatsApp {shop.phone}</p>
-            <Link
-              to="/admin"
-              search={{ store: undefined }}
-              className="underline-offset-4 hover:underline"
-            >
-              Staff login
-            </Link>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      ) : null}
 
       <nav
         aria-label="Storefront"

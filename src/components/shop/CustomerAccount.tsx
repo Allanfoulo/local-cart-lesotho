@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ResponsiveDashboardNavigation } from "@/components/layout/ResponsiveDashboardNavigation";
 import {
   useAppStore,
   ORDER_STATUS_LABEL,
@@ -86,33 +87,23 @@ export function CustomerAccount({ initialSection = "profile" }: { initialSection
       </main>
     );
   return (
-    <main className="mx-auto max-w-6xl px-4 py-5 sm:py-7 md:px-8 md:py-10">
-      <header className="mb-5 sm:mb-7">
-        <p className="text-sm font-semibold text-primary">YOUR REETAPELE ACCOUNT</p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-          Hello, {s.account.name.split(" ")[0] || "there"}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground sm:text-base">
-          Manage the details that make your next shop easier.
-        </p>
-      </header>
-      <div className="grid gap-5 md:gap-7 md:grid-cols-[220px_minmax(0,1fr)]">
-        <nav
-          aria-label="Account sections"
-          className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0"
-        >
-          {sections.map(([id, label, Icon]) => (
-            <button
-              key={id}
-              onClick={() => setSection(id)}
-              aria-current={section === id ? "page" : undefined}
-              className={`flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-left text-sm font-semibold md:gap-3 ${section === id ? "bg-primary text-primary-foreground" : "bg-card hover:bg-muted"}`}
-            >
-              <Icon className="size-4" />
-              {label}
-            </button>
-          ))}
-        </nav>
+    <ResponsiveDashboardNavigation
+      title="Your account"
+      items={sections.map(([id, label, icon]) => ({ id, label, icon }))}
+      activeItem={section}
+      onSelect={setSection}
+      className="h-full max-w-6xl overflow-hidden px-4 py-5 sm:py-7 md:px-8 md:py-4"
+    >
+      <main className="min-w-0">
+        <header className="mb-5 sm:mb-7">
+          <p className="text-sm font-semibold text-primary">YOUR REETAPELE ACCOUNT</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
+            Hello, {s.account.name.split(" ")[0] || "there"}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+            Manage the details that make your next shop easier.
+          </p>
+        </header>
         <div className="min-w-0">
           {notice && (
             <p role="status" className="mb-4 rounded-xl bg-emerald-50 p-3 text-sm text-primary">
@@ -308,7 +299,11 @@ export function CustomerAccount({ initialSection = "profile" }: { initialSection
                             {formatM(product!.promoPrice ?? product!.price)} / {product!.unit}
                           </p>
                         </div>
-                        <Button size="sm" className="min-h-11" onClick={() => s.addToCart(product!)}>
+                        <Button
+                          size="sm"
+                          className="min-h-11"
+                          onClick={() => s.addToCart(product!)}
+                        >
                           Add
                         </Button>
                         <Button
@@ -364,8 +359,8 @@ export function CustomerAccount({ initialSection = "profile" }: { initialSection
             </section>
           )}
         </div>
-      </div>
-    </main>
+      </main>
+    </ResponsiveDashboardNavigation>
   );
 }
 function AddressBook() {
