@@ -527,6 +527,86 @@ test("authenticated customer checkout splits multiple stores and rejects guests"
   expect(persisted.productB?.stock).toBe(9);
 });
 
+test("multi-store recovery keeps sibling orders intact and checkout retries do not duplicate", async () => {
+  const t = convexTest(schema, modules);
+  const fixture = await t.run(async (ctx) => {
+    const customerId = await user(ctx, "recovery-customer@example.test");
+    const managerId = await user(ctx, "recovery-manager@example.test");
+    const storeA = await store(ctx, "Recovery Store A");
+    const storeB = await store(ctx, "Recovery Store B");
+    await seedSettings(ctx, storeA);
+    await seedSettings(ctx, storeB);
+    const productA = await seedProduct(ctx, storeA, "Recovery apples");
+    const productB = await seedProduct(ctx, storeB, "Recovery bread");
+    await ctx.db.insert("memberships", { userId: managerId, storeId: storeA, role: "store_manager", status: "active", grantedAt: Date.now() });
+    return { customerId, managerId, storeA, storeB, productA, productB };
+  });
+  const checkout = t.withIdentity(identity(fixture.customerId, "recovery-customer@example.test"));
+  const manager = t.withIdentity(identity(fixture.managerId, "recovery-manager@example.test"));
+  const customer = { name: "Recovery Customer", phone: "+26650000005", email: "recovery-customer@example.test" };
+  const checkoutArgs = (checkoutId: string) => ({
+    checkoutId, customer,
+    destination: { area: "Maseru", address: "Recovery test address" }, paymentMethod: "cash_on_delivery" as const,
+    items: [{ productId: fixture.productA, quantity: 1 }, { productId: fixture.productB, quantity: 1 }],
+  });
+
+  await t.run(async (ctx) => ctx.db.patch(fixture.productA, { available: false }));
+  await expect(checkout.mutation(api.orders.placeGuestOrder, checkoutArgs("recovery-unavailable-01")))
+    .rejects.toThrow(/products are no longer available/i);
+  let state = await t.run(async (ctx) => ({
+    orders: await ctx.db.query("orders").take(10),
+    checkouts: await ctx.db.query("checkouts").take(10),
+    productA: await ctx.db.get(fixture.productA),
+    productB: await ctx.db.get(fixture.productB),
+  }));
+  expect(state.orders).toHaveLength(0);
+  expect(state.checkouts).toHaveLength(0);
+  expect(state.productA?.stock).toBe(10);
+  expect(state.productB?.stock).toBe(10);
+
+  await t.run(async (ctx) => {
+    await ctx.db.patch(fixture.productA, { available: true });
+    await ctx.db.patch(fixture.storeB, { enabled: false });
+  });
+  await expect(checkout.mutation(api.orders.placeGuestOrder, checkoutArgs("recovery-closed-store-01")))
+    .rejects.toThrow(/stores are no longer available/i);
+  state = await t.run(async (ctx) => ({
+    orders: await ctx.db.query("orders").take(10),
+    checkouts: await ctx.db.query("checkouts").take(10),
+    productA: await ctx.db.get(fixture.productA),
+    productB: await ctx.db.get(fixture.productB),
+  }));
+  expect(state.orders).toHaveLength(0);
+  expect(state.checkouts).toHaveLength(0);
+  expect(state.productA?.stock).toBe(10);
+  expect(state.productB?.stock).toBe(10);
+
+  await t.run(async (ctx) => ctx.db.patch(fixture.storeB, { enabled: true }));
+  const placed = await checkout.mutation(api.orders.placeGuestOrder, checkoutArgs("recovery-multistore-01"));
+  const uncertainRetry = await checkout.mutation(api.orders.placeGuestOrder, checkoutArgs("recovery-multistore-01"));
+  expect(uncertainRetry.orders.map((order) => order.orderId)).toEqual(placed.orders.map((order) => order.orderId));
+  expect(uncertainRetry.total).toBe(placed.total);
+
+  const rejectedOrder = placed.orders.find((order) => order.storeId === fixture.storeA);
+  const siblingOrder = placed.orders.find((order) => order.storeId === fixture.storeB);
+  expect(rejectedOrder).toBeTruthy();
+  expect(siblingOrder).toBeTruthy();
+  await manager.mutation(api.orders.updateStatus, { orderId: rejectedOrder!.orderId, status: "rejected" });
+  const retryAfterRejection = await checkout.mutation(api.orders.placeGuestOrder, checkoutArgs("recovery-multistore-01"));
+  expect(retryAfterRejection.orders.map((order) => order.orderId)).toEqual(placed.orders.map((order) => order.orderId));
+
+  state = await t.run(async (ctx) => ({
+    orders: await ctx.db.query("orders").withIndex("by_checkout_id", (q) => q.eq("checkoutId", "recovery-multistore-01")).take(10),
+    checkout: await ctx.db.query("checkouts").withIndex("by_checkout_id", (q) => q.eq("checkoutId", "recovery-multistore-01")).unique(),
+  }));
+  expect(state.orders).toHaveLength(2);
+  expect(state.checkout?.orderIds).toEqual(placed.orders.map((order) => order.orderId));
+  expect(state.orders.find((order) => order.storeId === fixture.storeA)?.status).toBe("rejected");
+  expect(state.orders.find((order) => order.storeId === fixture.storeB)).toMatchObject({
+    status: "received", total: siblingOrder!.total, items: siblingOrder!.items,
+  });
+});
+
 test("multi-store staff handoff stays scoped and customers see both delivered child orders", async () => {
   const t = convexTest(schema, modules);
   const fixture = await t.run(async (ctx) => {
