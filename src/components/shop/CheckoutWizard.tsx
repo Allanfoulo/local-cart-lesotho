@@ -25,6 +25,29 @@ type CheckoutInput = {
 const PENDING_CHECKOUT_STORAGE_KEY = "reetapele.pending-checkout";
 type PendingCheckout = { checkoutId: string; cartFingerprint: string };
 
+function checkoutErrorMessage(reason: unknown) {
+  const raw = reason instanceof Error ? reason.message : "";
+  if (/sign in or create a customer account before placing your order/i.test(raw)) {
+    return "Please sign in or create a customer account before placing your order.";
+  }
+  if (/sign in with the email address entered for this checkout/i.test(raw)) {
+    return "Your checkout email must match your account email. Update the email in delivery details or sign in with the matching account.";
+  }
+
+  const errorStart = raw.search(/Uncaught (?:ConvexError|Error):/i);
+  if (errorStart >= 0) {
+    const messageStart = raw.indexOf(":", errorStart) + 1;
+    const message = raw
+      .slice(messageStart)
+      .split(/\s+at handler\b|\s+Called by client\b/)[0]
+      ?.trim();
+    if (message) return message;
+  }
+
+  if (raw && !/\[CONVEX|Request ID:|Called by client|at handler/i.test(raw)) return raw;
+  return "We couldn't place your order. Please check your details and try again.";
+}
+
 function pendingCheckoutFor(cartFingerprint: string, current?: PendingCheckout): PendingCheckout {
   if (current?.cartFingerprint === cartFingerprint) return current;
   try {
@@ -478,9 +501,7 @@ function CheckoutWizardForm({
       checkoutId.current = undefined;
       void navigate({ to: "/order-confirmation/$id", params: { id: receiptId } });
     } catch (placeError) {
-      setError(
-        placeError instanceof Error ? placeError.message : "The checkout could not be placed.",
-      );
+      setError(checkoutErrorMessage(placeError));
     } finally {
       setSubmitting(false);
     }
