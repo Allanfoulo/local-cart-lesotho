@@ -1,8 +1,23 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { Check, ChevronDown, MapPin, Phone, Truck } from "lucide-react";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { api } from "../../../convex/_generated/api";
 import { DeliveryMap } from "@/components/maps/DeliveryMap";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
+import { mapAssignedDelivery } from "@/features/orders/convex-mapper";
 import { useAppStore } from "@/lib/app-store";
 import { deliveryAreasForMap, orderMapPoint } from "@/lib/delivery-map";
 import { formatM } from "@/lib/format";
@@ -25,11 +40,20 @@ function orderSequence(orders: Order[], sequences: Record<string, string[]>) {
 
 export function DriverDashboard() {
   const store = useAppStore();
+  const deliveryProjection = useQuery(api.orders.myAssigned, {});
+  const updateOrderStatus = useMutation(api.orders.updateStatus);
   const [mapOpen, setMapOpen] = useState(false);
+  const [pendingDelivery, setPendingDelivery] = useState<Order | null>(null);
+  const [busyStopId, setBusyStopId] = useState<string | null>(null);
+  const [failedUpdate, setFailedUpdate] = useState<{ order: Order; status: "out_for_delivery" | "delivered" } | null>(null);
+  const [updateError, setUpdateError] = useState("");
   const { signOut } = useAuthActions();
-  const assigned = store.orders.filter((order) => inProgress.has(order.status));
-  const activeDriver = assigned[0]?.driver ?? "Your deliveries";
-  const ordered = orderSequence(assigned, store.deliveryRouteSequence);
+  const assigned = deliveryProjection?.orders.map(mapAssignedDelivery).filter((order) => inProgress.has(order.status)) ?? [];
+  const routeSequences = Object.fromEntries((deliveryProjection?.routeSequences ?? []).map((sequence) => {
+    const driverId = deliveryProjection?.orders.find((order) => order.storeId === sequence.storeId)?.driverUserId ?? "";
+    return [`${String(sequence.storeId)}::${String(driverId)}`, sequence.orderIds.map(String)];
+  }));
+  const ordered = orderSequence(assigned, routeSequences);
   const assignedStoreIds = new Set(ordered.map((order) => order.storeId));
   const areas = deliveryAreasForMap([...new Set(store.stores.filter((shop) => assignedStoreIds.has(shop.id)).flatMap((shop) => shop.deliveryAreas))]);
   const points = ordered.flatMap((order) => {
@@ -38,8 +62,19 @@ export function DriverDashboard() {
   });
   const currentStop = ordered[0];
 
-  const updateStop = (order: Order) => {
-    store.updateOrderStatus(order.id, order.status === "ready" ? "out_for_delivery" : "delivered");
+  const updateStop = async (order: Order, status: "out_for_delivery" | "delivered") => {
+    setBusyStopId(order.id);
+    setUpdateError("");
+    setFailedUpdate(null);
+    try {
+      await updateOrderStatus({ orderId: order.id as Id<"orders">, status });
+      setPendingDelivery(null);
+    } catch {
+      setFailedUpdate({ order, status });
+      setUpdateError("This update did not sync. The stop will stay active until Convex confirms it.");
+    } finally {
+      setBusyStopId(null);
+    }
   };
 
   return (
@@ -52,7 +87,10 @@ export function DriverDashboard() {
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">Today’s deliveries</h1>
           </div>
-          <Button variant="outline" className="min-h-11" onClick={() => void signOut()}>Sign out</Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <WorkspaceSwitcher />
+            <Button variant="outline" className="min-h-11" onClick={() => void signOut()}>Sign out</Button>
+          </div>
         </header>
 
         <section aria-labelledby="current-stop-heading">
@@ -63,7 +101,11 @@ export function DriverDashboard() {
             <span className="text-sm text-muted-foreground">{ordered.length} remaining</span>
           </div>
 
-          {currentStop ? (
+          {deliveryProjection === undefined ? (
+            <div className="rounded-2xl border bg-card px-5 py-10 text-center text-sm text-muted-foreground" role="status">
+              Loading assigned deliveries…
+            </div>
+          ) : currentStop ? (
             <article className="overflow-hidden rounded-2xl border bg-card">
               <div className="flex items-center gap-3 border-b bg-muted/40 px-4 py-3">
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary font-bold text-primary-foreground">
@@ -107,17 +149,25 @@ export function DriverDashboard() {
                   Call {currentStop.customer.name.split(" ")[0]}
                 </a>
 
-                <Button className="h-12 w-full text-base" onClick={() => updateStop(currentStop)}>
+                <Button
+                  className="h-12 w-full text-base"
+                  disabled={busyStopId === currentStop.id}
+                  onClick={() => currentStop.status === "ready" ? void updateStop(currentStop, "out_for_delivery") : setPendingDelivery(currentStop)}
+                >
                   {currentStop.status === "ready" ? (
                     <>
                       <Truck className="size-4" /> Start delivery
                     </>
                   ) : (
                     <>
-                      <Check className="size-4" /> Mark delivered
+                      <Check className="size-4" /> Confirm delivery
                     </>
                   )}
                 </Button>
+                {updateError && <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                  <p>{updateError}</p>
+                  {failedUpdate && <Button className="mt-2 min-h-11" variant="outline" disabled={busyStopId !== null} onClick={() => void updateStop(failedUpdate.order, failedUpdate.status)}>{busyStopId === failedUpdate.order.id ? "Retrying…" : "Retry update"}</Button>}
+                </div>}
               </div>
             </article>
           ) : (
@@ -187,6 +237,23 @@ export function DriverDashboard() {
           Delivery updates sync with your store workspace.
         </p>
       </div>
+      <AlertDialog open={pendingDelivery !== null} onOpenChange={(open) => { if (!open && busyStopId === null) setPendingDelivery(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm this delivery?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Mark order {pendingDelivery?.number} as delivered only after handing it to the customer. This updates the customer’s order status.
+            </AlertDialogDescription>
+            {updateError && <p role="alert" className="rounded-lg bg-destructive/5 p-3 text-sm text-destructive">{updateError}</p>}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="min-h-11" disabled={busyStopId !== null}>Keep stop active</AlertDialogCancel>
+            <AlertDialogAction className="min-h-11" disabled={busyStopId !== null} onClick={(event) => { event.preventDefault(); if (pendingDelivery) void updateStop(pendingDelivery, "delivered"); }}>
+              {busyStopId ? "Saving…" : failedUpdate?.status === "delivered" ? "Retry confirmation" : "Confirm delivered"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

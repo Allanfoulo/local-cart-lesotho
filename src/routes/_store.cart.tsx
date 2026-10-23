@@ -20,12 +20,18 @@ export const Route = createFileRoute("/_store/cart")({
 });
 
 function CartPage() {
-  const { cart, cartSubtotal, stores, shop, setCartQuantity, removeFromCart } = useAppStore();
+  const { cart, cartSubtotal, stores, shop, products, setCartQuantity, removeFromCart } =
+    useAppStore();
   const groups = groupCartByStore(cart, stores.length ? stores : [shop]);
   const delivery = groups.reduce((sum, group) => sum + group.store.deliveryFee, 0);
   const total = cartSubtotal + delivery;
   const belowMinimum = groups.filter((group) => group.subtotal < group.store.minimumOrder);
   const belowMin = belowMinimum.length > 0;
+  const unavailableItems = cart.filter((item) => {
+    const product = products.find((candidate) => candidate.id === item.productId);
+    return !product || !product.available || product.stock <= 0 || item.quantity > product.stock;
+  });
+  const checkoutBlocked = belowMin || unavailableItems.length > 0;
 
   if (!cart.length) {
     return (
@@ -43,7 +49,18 @@ function CartPage() {
   return (
     <div className="grid gap-6 md:grid-cols-[1fr_340px]">
       <div className="space-y-3">
-        <h1 className="text-2xl font-extrabold tracking-tight">Your cart</h1>
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight">Your cart</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Items and delivery are grouped by store. Each store prepares a separate order.
+          </p>
+        </div>
+        {unavailableItems.length > 0 && (
+          <p role="alert" className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
+            Update or remove these unavailable or over-stock items before checkout:{" "}
+            {unavailableItems.map((item) => item.name).join(", ")}.
+          </p>
+        )}
         {groups.map((group) => (
           <section key={group.store.id} className="space-y-3">
             <div className="flex items-baseline justify-between gap-3">
@@ -51,33 +68,43 @@ function CartPage() {
               <span className="text-xs text-muted-foreground">{group.items.length} items</span>
             </div>
             {group.items.map((item) => (
-          <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
-            <ProductTile emoji={item.emoji} name={item.name} size="sm" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold">{item.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {formatM(item.unitPrice)} {unitLabel(item.unit)}
-              </p>
-              <div className="mt-2 flex items-center justify-between gap-2">
-                <QuantityStepper
-                  size="sm"
-                  value={item.quantity}
-                  step={item.soldByWeight ? 0.5 : 1}
-                  suffix={item.soldByWeight ? "kg" : undefined}
-                  onChange={(q) => setCartQuantity(item.productId, q)}
-                />
-                <span className="font-bold">{formatM(item.unitPrice * item.quantity)}</span>
+              <div
+                key={item.id}
+                className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3"
+              >
+                <ProductTile emoji={item.emoji} name={item.name} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="line-clamp-2 font-semibold">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatM(item.unitPrice)} {unitLabel(item.unit)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-11 shrink-0"
+                      aria-label={`Remove ${item.name}`}
+                      onClick={() => removeFromCart(item.productId)}
+                    >
+                      <Trash2 className="size-4 text-muted-foreground" />
+                    </Button>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <QuantityStepper
+                      value={item.quantity}
+                      itemName={item.name}
+                      step={item.soldByWeight ? 0.5 : 1}
+                      suffix={item.soldByWeight ? "kg" : undefined}
+                      onChange={(q) => setCartQuantity(item.productId, q)}
+                    />
+                    <span className="shrink-0 font-bold">
+                      {formatM(item.unitPrice * item.quantity)}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={`Remove ${item.name}`}
-              onClick={() => removeFromCart(item.productId)}
-            >
-              <Trash2 className="size-4 text-muted-foreground" />
-            </Button>
-          </div>
             ))}
           </section>
         ))}
@@ -86,7 +113,11 @@ function CartPage() {
         <h2 className="font-bold">Order summary</h2>
         <Row label="Subtotal" value={formatM(cartSubtotal)} />
         {groups.map((group) => (
-          <Row key={group.store.id} label={`${group.store.name} delivery`} value={formatM(group.store.deliveryFee)} />
+          <Row
+            key={group.store.id}
+            label={`${group.store.name} delivery`}
+            value={formatM(group.store.deliveryFee)}
+          />
         ))}
         <div className="border-t border-border pt-3">
           <Row label="Total" value={formatM(total)} bold />
@@ -95,13 +126,19 @@ function CartPage() {
           <div className="space-y-2 rounded-xl bg-warning/15 p-3 text-sm">
             {belowMinimum.map((group) => (
               <p key={group.store.id}>
-                {group.store.name} requires {formatM(group.store.minimumOrder)} minimum. Add {formatM(group.store.minimumOrder - group.subtotal)} more.
+                {group.store.name} requires {formatM(group.store.minimumOrder)} minimum. Add{" "}
+                {formatM(group.store.minimumOrder - group.subtotal)} more.
               </p>
             ))}
           </div>
         ) : null}
-        <Button asChild size="lg" className="w-full rounded-full" disabled={belowMin}>
-          {belowMin ? <span>Checkout</span> : <Link to="/checkout">Checkout</Link>}
+        <Button
+          asChild
+          size="lg"
+          className="min-h-12 w-full rounded-full"
+          disabled={checkoutBlocked}
+        >
+          {checkoutBlocked ? <span>Checkout</span> : <Link to="/checkout">Checkout</Link>}
         </Button>
         <Link to="/shop" className="block text-center text-sm font-semibold text-primary">
           Continue shopping
