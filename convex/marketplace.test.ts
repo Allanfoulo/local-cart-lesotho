@@ -477,6 +477,12 @@ test("authenticated customer checkout splits multiple stores and rejects guests"
     destination: { area: "Maseru", address: "Main street" }, paymentMethod: "cash_on_delivery",
     items: [{ productId: fixture.productA, quantity: 1 }],
   })).rejects.toThrow(/sign in or create a customer account/i);
+  const beforeAuthentication = await t.run(async (ctx) => ({
+    orders: await ctx.db.query("orders").take(10),
+    checkouts: await ctx.db.query("checkouts").take(10),
+  }));
+  expect(beforeAuthentication.orders).toHaveLength(0);
+  expect(beforeAuthentication.checkouts).toHaveLength(0);
 
   const receipt = await checkout.mutation(api.orders.placeGuestOrder, {
     checkoutId: "multi-store-checkout-001", customer,
@@ -484,7 +490,15 @@ test("authenticated customer checkout splits multiple stores and rejects guests"
     items: [{ productId: fixture.productA, quantity: 2 }, { productId: fixture.productB, quantity: 1 }],
   });
 
+  const retry = await checkout.mutation(api.orders.placeGuestOrder, {
+    checkoutId: "multi-store-checkout-001", customer,
+    destination: { area: "Maseru", address: "Main street" }, paymentMethod: "cash_on_delivery", couponCode: "save5",
+    items: [{ productId: fixture.productA, quantity: 2 }, { productId: fixture.productB, quantity: 1 }],
+  });
+
   expect(receipt.storeCount).toBe(2);
+  expect(retry.orders.map((order) => order.orderId)).toEqual(receipt.orders.map((order) => order.orderId));
+  expect(retry.total).toBe(receipt.total);
   expect(receipt.orders.map((order) => order.storeId).sort()).toEqual([fixture.storeA, fixture.storeB].sort());
   expect(receipt.total).toBe(35);
   expect(receipt.orders.find((order) => order.storeId === fixture.storeA)).toMatchObject({ subtotal: 20, discount: 5, total: 20 });
@@ -511,4 +525,88 @@ test("authenticated customer checkout splits multiple stores and rejects guests"
   expect(persisted.events.filter((event) => event.eventType === "OrderPlaced")).toHaveLength(1);
   expect(persisted.productA?.stock).toBe(8);
   expect(persisted.productB?.stock).toBe(9);
+});
+
+test("multi-store staff handoff stays scoped and customers see both delivered child orders", async () => {
+  const t = convexTest(schema, modules);
+  const fixture = await t.run(async (ctx) => {
+    const customerUserId = await user(ctx, "customer@example.test");
+    const managerAId = await user(ctx, "manager-a@example.test");
+    const managerBId = await user(ctx, "manager-b@example.test");
+    const staffAId = await user(ctx, "staff-a@example.test");
+    const staffBId = await user(ctx, "staff-b@example.test");
+    const driverAId = await user(ctx, "driver-a@example.test");
+    const driverBId = await user(ctx, "driver-b@example.test");
+    const otherDriverId = await user(ctx, "other-driver@example.test");
+    const storeA = await store(ctx, "Store A");
+    const storeB = await store(ctx, "Store B");
+    const customerId = await ctx.db.insert("customers", {
+      userId: customerUserId, name: "Customer", phone: "+26650000004", normalizedPhone: "+26650000004",
+      orderCount: 2, lifetimeSpend: 30, lastOrderAt: Date.now(),
+    });
+    for (const [userId, storeId, role] of [
+      [managerAId, storeA, "store_manager"], [staffAId, storeA, "order_staff"], [driverAId, storeA, "driver"],
+      [managerBId, storeB, "store_manager"], [staffBId, storeB, "order_staff"], [driverBId, storeB, "driver"],
+      [otherDriverId, storeA, "driver"],
+    ] as const) {
+      await ctx.db.insert("memberships", { userId, storeId, role, status: "active", grantedAt: Date.now() });
+    }
+    const makeOrder = async (storeId: Id<"stores">, storeName: string, orderNumber: string) => await ctx.db.insert("orders", {
+      storeId, storeName, orderNumber, checkoutId: "MULTI-STORE-CHECKOUT", customerId, customerUserId,
+      customer: { name: "Customer", phone: "+26650000004" }, items: [],
+      destination: { area: "Maseru", address: "Main street" }, payment: { method: "cash_on_delivery", status: "unpaid" },
+      subtotal: 10, deliveryFee: 5, total: 15, status: "received", createdAt: Date.now(), estimatedDeliveryAt: Date.now() + 1000,
+    });
+    const orderAId = await makeOrder(storeA, "Store A", "REE-CHILD-A");
+    const orderBId = await makeOrder(storeB, "Store B", "REE-CHILD-B");
+    return { customerUserId, managerAId, managerBId, staffAId, staffBId, driverAId, driverBId, otherDriverId, storeA, storeB, orderAId, orderBId };
+  });
+  const managerA = t.withIdentity(identity(fixture.managerAId, "manager-a@example.test"));
+  const managerB = t.withIdentity(identity(fixture.managerBId, "manager-b@example.test"));
+  const staffA = t.withIdentity(identity(fixture.staffAId, "staff-a@example.test"));
+  const staffB = t.withIdentity(identity(fixture.staffBId, "staff-b@example.test"));
+  const driverA = t.withIdentity(identity(fixture.driverAId, "driver-a@example.test"));
+  const driverB = t.withIdentity(identity(fixture.driverBId, "driver-b@example.test"));
+  const otherDriver = t.withIdentity(identity(fixture.otherDriverId, "other-driver@example.test"));
+
+  const managerAOrders = await managerA.query(api.orders.listForStaff, {});
+  const managerBOrders = await managerB.query(api.orders.listForStaff, {});
+  expect(managerAOrders?.orders.map((order) => order._id)).toEqual([fixture.orderAId]);
+  expect(managerBOrders?.orders.map((order) => order._id)).toEqual([fixture.orderBId]);
+  await expect(managerA.mutation(api.orders.assignPreparationStaff, { orderId: fixture.orderBId, staffUserId: fixture.staffAId })).rejects.toThrow();
+  await expect(managerA.mutation(api.orders.assignDriver, { orderId: fixture.orderBId, driverUserId: fixture.driverAId })).rejects.toThrow();
+  await managerA.mutation(api.orders.assignPreparationStaff, { orderId: fixture.orderAId, staffUserId: fixture.staffAId });
+  await managerB.mutation(api.orders.assignPreparationStaff, { orderId: fixture.orderBId, staffUserId: fixture.staffBId });
+  const staffAOrders = await staffA.query(api.orders.listForStaff, {});
+  const staffBOrders = await staffB.query(api.orders.listForStaff, {});
+  expect(staffAOrders?.orders.map((order) => order._id)).toEqual([fixture.orderAId]);
+  expect(staffBOrders?.orders.map((order) => order._id)).toEqual([fixture.orderBId]);
+  await expect(staffA.mutation(api.orders.updateStatus, { orderId: fixture.orderBId, status: "confirmed" })).rejects.toThrow();
+  await expect(managerA.mutation(api.orders.assignDriver, { orderId: fixture.orderAId, driverUserId: fixture.driverBId })).rejects.toThrow(/active driver for this store/i);
+
+  for (const [manager, staff, driver, orderId] of [
+    [managerA, staffA, driverA, fixture.orderAId], [managerB, staffB, driverB, fixture.orderBId],
+  ] as const) {
+    await staff.mutation(api.orders.updateStatus, { orderId, status: "confirmed" });
+    await staff.mutation(api.orders.updateStatus, { orderId, status: "preparing" });
+    await staff.mutation(api.orders.updateStatus, { orderId, status: "ready" });
+    await manager.mutation(api.orders.assignDriver, { orderId, driverUserId: orderId === fixture.orderAId ? fixture.driverAId : fixture.driverBId });
+    await expect(driver.mutation(api.orders.updateStatus, { orderId, status: "delivered" })).rejects.toThrow();
+  }
+  expect((await driverA.query(api.orders.myAssigned, {}))?.orders.map((order) => order._id)).toEqual([fixture.orderAId]);
+  expect((await driverB.query(api.orders.myAssigned, {}))?.orders.map((order) => order._id)).toEqual([fixture.orderBId]);
+  await expect(otherDriver.mutation(api.orders.updateStatus, { orderId: fixture.orderAId, status: "out_for_delivery" })).rejects.toThrow();
+  await expect(driverA.mutation(api.orders.updateStatus, { orderId: fixture.orderBId, status: "out_for_delivery" })).rejects.toThrow();
+  for (const [driver, orderId] of [[driverA, fixture.orderAId], [driverB, fixture.orderBId]] as const) {
+    await driver.mutation(api.orders.updateStatus, { orderId, status: "out_for_delivery" });
+    await driver.mutation(api.orders.updateStatus, { orderId, status: "delivered" });
+  }
+  const customer = t.withIdentity(identity(fixture.customerUserId, "customer@example.test"));
+  const customerOrders = await customer.query(api.customers.myOrders, {});
+  expect(customerOrders).toHaveLength(2);
+  expect(customerOrders.map((order) => order.status).sort()).toEqual(["delivered", "delivered"]);
+  expect(customerOrders.map((order) => order.timeline.map((event) => event.status))).toEqual([
+    ["confirmed", "preparing", "ready", "out_for_delivery", "delivered"],
+    ["confirmed", "preparing", "ready", "out_for_delivery", "delivered"],
+  ]);
 });
