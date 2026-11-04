@@ -5,6 +5,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { mapConvexOrder } from "@/features/orders/convex-mapper";
+import { CustomerDeliveryTracking } from "@/components/shop/CustomerDeliveryTracking";
 import {
   Heart,
   MapPin,
@@ -214,6 +215,7 @@ export function CustomerAccount({ initialSection = "profile" }: { initialSection
                           {ORDER_STATUS_LABEL[order.status]}
                         </span>
                       </div>
+                      <CustomerDeliveryTracking orderId={order.id} orderStatus={order.status} />
                       <p className="mt-4 break-words text-sm">
                         {order.items.map((i) => `${i.quantity} × ${i.name}`).join(" · ")}
                       </p>
@@ -570,3 +572,4 @@ function OrdersLoadingSkeleton() {
     </div>
   );
 }
+

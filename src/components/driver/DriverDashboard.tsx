@@ -1,5 +1,5 @@
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Check, ChevronDown, MapPin, Phone, Truck } from "lucide-react";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -49,18 +49,36 @@ export function DriverDashboard() {
   const [updateError, setUpdateError] = useState("");
   const { signOut } = useAuthActions();
   const assigned = deliveryProjection?.orders.map(mapAssignedDelivery).filter((order) => inProgress.has(order.status)) ?? [];
+  const pendingAssignments = deliveryProjection?.pendingAssignments ?? [];
   const routeSequences = Object.fromEntries((deliveryProjection?.routeSequences ?? []).map((sequence) => {
     const driverId = deliveryProjection?.orders.find((order) => order.storeId === sequence.storeId)?.driverUserId ?? "";
     return [`${String(sequence.storeId)}::${String(driverId)}`, sequence.orderIds.map(String)];
   }));
   const ordered = orderSequence(assigned, routeSequences);
+  const currentStop = ordered[0];
+  const tracking = useQuery(
+    api.deliveryTracking.forOrder,
+    currentStop?.status === "out_for_delivery"
+      ? { orderId: currentStop.id as Id<"orders"> }
+      : "skip",
+  );
   const assignedStoreIds = new Set(ordered.map((order) => order.storeId));
   const areas = deliveryAreasForMap([...new Set(store.stores.filter((shop) => assignedStoreIds.has(shop.id)).flatMap((shop) => shop.deliveryAreas))]);
   const points = ordered.flatMap((order) => {
     const point = orderMapPoint(order);
     return point ? [{ ...point, label: order.number }] : [];
   });
-  const currentStop = ordered[0];
+  const liveTrip = tracking?.active && tracking.location
+    ? {
+        orderId: currentStop?.id ?? "",
+        driverLocation: { lat: tracking.location.latitude, lng: tracking.location.longitude },
+        ...(tracking.destination ? { destination: { lat: tracking.destination.latitude, lng: tracking.destination.longitude } } : {}),
+        routeStatus: tracking.location.routeStatus,
+        ...(tracking.location.distanceMeters === undefined ? {} : { distanceMeters: tracking.location.distanceMeters }),
+        ...(tracking.location.durationSeconds === undefined ? {} : { durationSeconds: tracking.location.durationSeconds }),
+        ...(tracking.location.encodedPolyline === undefined ? {} : { encodedPolyline: tracking.location.encodedPolyline }),
+      }
+    : undefined;
 
   const updateStop = async (order: Order, status: "out_for_delivery" | "delivered") => {
     setBusyStopId(order.id);
@@ -141,6 +159,28 @@ export function DriverDashboard() {
                   </div>
                 </div>
 
+                {currentStop.status === "ready" ? (
+                  <p className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">
+                    Starting delivery shares your live location with this customer until you confirm delivery. Keep this page open during the trip.
+                  </p>
+                ) : (
+                  <DriverLocationReporter orderId={currentStop.id as Id<"orders">} />
+                )}
+                {tracking?.active && tracking.location?.routeStatus === "available" &&
+                  tracking.location.durationSeconds !== undefined && tracking.location.distanceMeters !== undefined && (
+                    <div className="flex items-center justify-between rounded-xl border bg-background p-3">
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Current stop</p>
+                        <p className="font-semibold">About {Math.max(1, Math.round(tracking.location.durationSeconds / 60))} min away</p>
+                      </div>
+                      <p className="text-sm font-semibold text-primary">
+                        {tracking.location.distanceMeters < 1000
+                          ? `${Math.round(tracking.location.distanceMeters)} m`
+                          : `${(tracking.location.distanceMeters / 1000).toFixed(1)} km`} by road
+                      </p>
+                    </div>
+                  )}
+
                 <a
                   href={`tel:${currentStop.customer.phone.replace(/\s/g, "")}`}
                   className="flex min-h-12 items-center justify-center gap-2 rounded-xl border font-semibold text-primary"
@@ -183,6 +223,30 @@ export function DriverDashboard() {
           )}
         </section>
 
+        {pendingAssignments.length > 0 && (
+          <section className="mt-5" aria-labelledby="waiting-for-store-heading">
+            <h2 id="waiting-for-store-heading" className="mb-2 font-semibold">
+              Waiting for store
+            </h2>
+            <p className="mb-3 text-sm text-muted-foreground">
+              These orders are assigned to you. Delivery details and tracking become available when the store marks an order ready.
+            </p>
+            <ul className="divide-y rounded-2xl border bg-card">
+              {pendingAssignments.map((order) => (
+                <li key={order._id} className="flex items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <p className="font-semibold">{order.orderNumber}</p>
+                    <p className="text-sm text-muted-foreground">{order.storeName}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium">
+                    {order.status === "received" ? "Received" : order.status === "confirmed" ? "Confirmed" : "Preparing"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {ordered.length > 1 && (
           <section className="mt-6">
             <h2 className="mb-3 font-semibold">Following stops</h2>
@@ -222,12 +286,14 @@ export function DriverDashboard() {
               <DeliveryMap
                 points={points}
                 areas={areas}
+                liveTrip={liveTrip}
                 height="240px"
-                ariaLabel="Approximate neighbourhood centers for assigned delivery stops"
+                ariaLabel={liveTrip ? "Live driver location and route to the current delivery stop" : "Approximate neighbourhood centers for assigned delivery stops"}
               />
               <p className="px-2 py-2 text-xs text-muted-foreground">
-                Pins show approximate neighbourhood centres, not the customer’s exact house. No
-                address or customer coordinates are sent to the map.
+                {liveTrip
+                  ? "The current customer’s verified delivery pin and your live location are shown while this stop is active."
+                  : "Pins show approximate neighbourhood centres. Live location sharing starts when you begin the next stop."}
               </p>
             </div>
           )}
@@ -257,3 +323,64 @@ export function DriverDashboard() {
     </main>
   );
 }
+
+function DriverLocationReporter({ orderId }: { orderId: Id<"orders"> }) {
+  const updateLocation = useMutation(api.deliveryTracking.updateDriverLocation);
+  const [state, setState] = useState<"starting" | "sharing" | "paused">("starting");
+  const lastPosition = useRef<{ latitude: number; longitude: number; sentAt: number } | undefined>(undefined);
+
+  useEffect(() => {
+    if (!navigator.geolocation || !window.isSecureContext) {
+      setState("paused");
+      return;
+    }
+    let watchId: number | undefined;
+    let stopped = false;
+    const stop = () => {
+      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
+      watchId = undefined;
+    };
+    const start = () => {
+      if (stopped || document.visibilityState !== "visible" || watchId !== undefined) return;
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const next = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            sentAt: Date.now(),
+          };
+          const prior = lastPosition.current;
+          if (prior && next.sentAt - prior.sentAt < 10_000) return;
+          lastPosition.current = next;
+          void updateLocation({ orderId, latitude: next.latitude, longitude: next.longitude })
+            .then(() => setState("sharing"))
+            .catch(() => setState("paused"));
+        },
+        () => setState("paused"),
+        { enableHighAccuracy: true, maximumAge: 5_000, timeout: 20_000 },
+      );
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") start();
+      else stop();
+    };
+    start();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      stopped = true;
+      stop();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [orderId, updateLocation]);
+
+  return (
+    <p className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground" role="status">
+      {state === "sharing"
+        ? "Your live location is being shared with this customer while this stop is active."
+        : state === "starting"
+          ? "Allow location access to share your live position with this customer."
+          : "Live location is paused. Check browser location permission and keep this page open to resume tracking."}
+    </p>
+  );
+}
+

@@ -78,7 +78,15 @@ function pendingCheckoutFor(cartFingerprint: string, current?: PendingCheckout):
   return pending;
 }
 
-function CustomerAccountGate({ email, onCancel }: { email: string; onCancel: () => void }) {
+function CustomerAccountGate({
+  email,
+  onEmailChange,
+  onCancel,
+}: {
+  email: string;
+  onEmailChange: (email: string) => void;
+  onCancel: () => void;
+}) {
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const [flow, setFlow] = useState<"signUp" | "signIn">("signUp");
@@ -94,6 +102,7 @@ function CustomerAccountGate({ email, onCancel }: { email: string; onCancel: () 
     setMessage("");
     try {
       const formData = new FormData(event.currentTarget);
+      formData.set("email", String(formData.get("email") ?? "").trim());
       formData.set("flow", flow);
       const result = await signIn("password", formData);
       if (!result.signingIn) {
@@ -163,7 +172,18 @@ function CustomerAccountGate({ email, onCancel }: { email: string; onCancel: () 
         </form>
       ) : (
         <form onSubmit={submitCredentials} className="mt-4 space-y-3">
-          <input name="email" type="hidden" value={email} />
+          <label className="block text-sm font-medium">
+            Email address
+            <Input
+              name="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => onEmailChange(event.currentTarget.value)}
+              required
+              className="mt-1.5 min-h-11 text-base"
+            />
+          </label>
           <label className="block text-sm font-medium">
             {flow === "signUp" ? "Choose a password" : "Password"}
             <Input
@@ -859,7 +879,11 @@ function CheckoutWizardForm({
           {step === 2 && (
             <section>
               {accountStep && (
-                <CustomerAccountGate email={email.trim()} onCancel={() => setAccountStep(false)} />
+                <CustomerAccountGate
+                  email={email}
+                  onEmailChange={setEmail}
+                  onCancel={() => setAccountStep(false)}
+                />
               )}
               <h2 className="text-xl font-semibold">Check your order</h2>
               <div className="mt-4 rounded-2xl border bg-card p-4">
@@ -1077,3 +1101,4 @@ function CheckoutWizardForm({
     </main>
   );
 }
+

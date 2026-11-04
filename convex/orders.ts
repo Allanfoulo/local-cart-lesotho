@@ -495,8 +495,9 @@ export const myAssigned = query({
       Promise.all(storeIds.map((storeId) => ctx.db.query("orders").withIndex("by_store_driver_status", (q) => q.eq("storeId", storeId).eq("driverUserId", userId)).take(100))),
       Promise.all(storeIds.map((storeId) => ctx.db.query("deliveryRouteSequences").withIndex("by_store_driver", (q) => q.eq("storeId", storeId).eq("driverUserId", userId)).unique())),
     ]);
+    const assignedOrders = rows.flat();
     return {
-      orders: rows.flat().filter((order) => order.status === "ready" || order.status === "out_for_delivery").map((order) => ({
+      orders: assignedOrders.filter((order) => order.status === "ready" || order.status === "out_for_delivery").map((order) => ({
         _id: order._id,
         _creationTime: order._creationTime,
         storeId: order.storeId,
@@ -517,6 +518,14 @@ export const myAssigned = query({
         createdAt: order.createdAt,
         estimatedDeliveryAt: order.estimatedDeliveryAt,
       })),
+      pendingAssignments: assignedOrders
+        .filter((order) => order.status === "received" || order.status === "confirmed" || order.status === "preparing")
+        .map((order) => ({
+          _id: order._id,
+          orderNumber: order.orderNumber,
+          storeName: order.storeName,
+          status: order.status,
+        })),
       routeSequences: routeSequences.flatMap((sequence) => sequence ? [{ storeId: sequence.storeId, orderIds: sequence.orderIds }] : []),
     };
   },
@@ -537,6 +546,13 @@ export const updateStatus = mutation({
     if (status === "out_for_delivery" && !order.driverUserId) throw new ConvexError("Assign a driver before dispatching this order.");
     const occurredAt = Date.now();
     await ctx.db.patch(orderId, { status });
+    if (status !== "out_for_delivery") {
+      const tracking = await ctx.db
+        .query("deliveryTracking")
+        .withIndex("by_order", (q) => q.eq("orderId", orderId))
+        .unique();
+      if (tracking) await ctx.db.delete(tracking._id);
+    }
     await ctx.db.insert("orderEvents", { orderId, orderNumber: order.orderNumber, eventType: "OrderStatusChanged", version: 1, actorId: userId, status, total: order.total, occurredAt });
     await ctx.db.insert("domainEvents", {
       eventType: "OrderStatusChanged", version: 1, aggregateType: "order", aggregateId: orderId,
@@ -631,3 +647,4 @@ export const setRouteSequence = mutation({
     return null;
   },
 });
+
