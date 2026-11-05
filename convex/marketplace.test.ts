@@ -18,19 +18,19 @@ async function user(ctx: MutationCtx, email: string, verified = true) {
 async function store(ctx: MutationCtx, name: string) {
   return await ctx.db.insert("stores", {
     slug: name.toLowerCase().replaceAll(" ", "-"), name, tagline: "Local groceries",
-    phone: "+26622220000", whatsapp: "+26622220000", address: "Maseru", openingHours: "08:00–18:00",
+    phone: "+26622220000", whatsapp: "+26622220000", address: "Maseru", openingHours: "08:00â€“18:00",
     enabled: true, sortOrder: 1,
   });
 }
 
 async function seedProduct(ctx: MutationCtx, storeId: Id<"stores">, name: string, stock = 10) {
   const categoryId = await ctx.db.insert("categories", {
-    storeId, slug: "groceries", name: "Groceries", emoji: "🛒", accent: "green", enabled: true, sortOrder: 1,
+    storeId, slug: "groceries", name: "Groceries", emoji: "ðŸ›’", accent: "green", enabled: true, sortOrder: 1,
   });
   return await ctx.db.insert("products", {
     storeId, slug: name.toLowerCase().replaceAll(" ", "-"), name, description: name, categoryId,
     price: 10, unit: "each", soldByWeight: false, stock, lowStockThreshold: 2,
-    available: true, popularity: 0, emoji: "🛒",
+    available: true, popularity: 0, emoji: "ðŸ›’",
   });
 }
 
@@ -52,7 +52,7 @@ test("store management reads and writes are limited to active memberships in tha
     const ownerId = await user(ctx, "owner@example.test");
     const storeA = await store(ctx, "Store A");
     const storeB = await store(ctx, "Store B");
-    const categoryId = await ctx.db.insert("categories", { storeId: storeA, slug: "existing", name: "Existing", emoji: "🛒", accent: "green", enabled: true, sortOrder: 1 });
+    const categoryId = await ctx.db.insert("categories", { storeId: storeA, slug: "existing", name: "Existing", emoji: "ðŸ›’", accent: "green", enabled: true, sortOrder: 1 });
     const membershipId = await ctx.db.insert("memberships", { userId: ownerId, storeId: storeA, role: "store_owner", status: "active", grantedAt: Date.now() });
     return { ownerId, storeA, storeB, categoryId, membershipId };
   });
@@ -60,10 +60,10 @@ test("store management reads and writes are limited to active memberships in tha
 
   await expect(owner.query(api.memberships.listForStore, { storeId: fixture.storeB })).rejects.toThrow();
   await expect(owner.mutation(api.catalog.upsertCategory, {
-    storeId: fixture.storeB, slug: "wrong-store", name: "Wrong store", emoji: "🛒", accent: "green", enabled: true, sortOrder: 2,
+    storeId: fixture.storeB, slug: "wrong-store", name: "Wrong store", emoji: "ðŸ›’", accent: "green", enabled: true, sortOrder: 2,
   })).rejects.toThrow();
   await expect(owner.mutation(api.catalog.upsertCategory, {
-    categoryId: fixture.categoryId, storeId: fixture.storeB, slug: "changed", name: "Changed", emoji: "🛒", accent: "green", enabled: true, sortOrder: 2,
+    categoryId: fixture.categoryId, storeId: fixture.storeB, slug: "changed", name: "Changed", emoji: "ðŸ›’", accent: "green", enabled: true, sortOrder: 2,
   })).rejects.toThrow();
 
   const rows = await owner.query(api.memberships.listForStore, { storeId: fixture.storeA });
@@ -170,12 +170,12 @@ test("only the super admin can create and inspect stores, and publishing require
   await expect(owner.query(api.stores.listForPlatform, {})).rejects.toThrow();
   await expect(owner.mutation(api.stores.create, {
     name: "Unauthorized", slug: "unauthorized", tagline: "No", phone: "+26650000000", whatsapp: "+26650000000",
-    address: "Maseru", openingHours: "08:00–18:00", deliveryArea: "Maseru",
+    address: "Maseru", openingHours: "08:00â€“18:00", deliveryArea: "Maseru",
   })).rejects.toThrow();
 
   const storeId = await admin.mutation(api.stores.create, {
     name: "New Store", slug: "new-store", tagline: "Local goods", phone: "+26650000000", whatsapp: "+26650000000",
-    address: "Maseru", openingHours: "08:00–18:00", deliveryArea: "Maseru",
+    address: "Maseru", openingHours: "08:00â€“18:00", deliveryArea: "Maseru",
   });
   const initial = await t.run(async (ctx) => ({ store: await ctx.db.get(storeId), settings: await ctx.db.query("storeSettings").withIndex("by_store", (q) => q.eq("storeId", storeId)).unique() }));
   expect(initial.store?.enabled).toBe(false);
@@ -208,7 +208,7 @@ test("store managers can update store settings but cannot control platform publi
   const manager = t.withIdentity(identity(fixture.managerId, "manager@example.test"));
   await manager.mutation(api.catalog.updateStoreSettings, {
     storeId: fixture.storeId, name: "Updated Store", tagline: "More choice", phone: "+26650000001", whatsapp: "+26650000001",
-    address: "New address", openingHours: "09:00–17:00", deliveryFee: 8, minimumOrder: 20,
+    address: "New address", openingHours: "09:00â€“17:00", deliveryFee: 8, minimumOrder: 20,
     deliveryAreas: ["Maseru", "Roma"], defaultDeliveryArea: "Roma", mobileMoneyEnabled: false,
     cashOnDeliveryEnabled: true, cardEnabled: false,
   });
@@ -553,16 +553,16 @@ test("multi-store recovery keeps sibling orders intact and checkout retries do n
   await t.run(async (ctx) => ctx.db.patch(fixture.productA, { available: false }));
   await expect(checkout.mutation(api.orders.placeGuestOrder, checkoutArgs("recovery-unavailable-01")))
     .rejects.toThrow(/products are no longer available/i);
-  let state = await t.run(async (ctx) => ({
+  const unavailableState = await t.run(async (ctx) => ({
     orders: await ctx.db.query("orders").take(10),
     checkouts: await ctx.db.query("checkouts").take(10),
     productA: await ctx.db.get(fixture.productA),
     productB: await ctx.db.get(fixture.productB),
   }));
-  expect(state.orders).toHaveLength(0);
-  expect(state.checkouts).toHaveLength(0);
-  expect(state.productA?.stock).toBe(10);
-  expect(state.productB?.stock).toBe(10);
+  expect(unavailableState.orders).toHaveLength(0);
+  expect(unavailableState.checkouts).toHaveLength(0);
+  expect(unavailableState.productA?.stock).toBe(10);
+  expect(unavailableState.productB?.stock).toBe(10);
 
   await t.run(async (ctx) => {
     await ctx.db.patch(fixture.productA, { available: true });
@@ -570,16 +570,16 @@ test("multi-store recovery keeps sibling orders intact and checkout retries do n
   });
   await expect(checkout.mutation(api.orders.placeGuestOrder, checkoutArgs("recovery-closed-store-01")))
     .rejects.toThrow(/stores are no longer available/i);
-  state = await t.run(async (ctx) => ({
+  const closedStoreState = await t.run(async (ctx) => ({
     orders: await ctx.db.query("orders").take(10),
     checkouts: await ctx.db.query("checkouts").take(10),
     productA: await ctx.db.get(fixture.productA),
     productB: await ctx.db.get(fixture.productB),
   }));
-  expect(state.orders).toHaveLength(0);
-  expect(state.checkouts).toHaveLength(0);
-  expect(state.productA?.stock).toBe(10);
-  expect(state.productB?.stock).toBe(10);
+  expect(closedStoreState.orders).toHaveLength(0);
+  expect(closedStoreState.checkouts).toHaveLength(0);
+  expect(closedStoreState.productA?.stock).toBe(10);
+  expect(closedStoreState.productB?.stock).toBe(10);
 
   await t.run(async (ctx) => ctx.db.patch(fixture.storeB, { enabled: true }));
   const placed = await checkout.mutation(api.orders.placeGuestOrder, checkoutArgs("recovery-multistore-01"));
@@ -595,14 +595,14 @@ test("multi-store recovery keeps sibling orders intact and checkout retries do n
   const retryAfterRejection = await checkout.mutation(api.orders.placeGuestOrder, checkoutArgs("recovery-multistore-01"));
   expect(retryAfterRejection.orders.map((order) => order.orderId)).toEqual(placed.orders.map((order) => order.orderId));
 
-  state = await t.run(async (ctx) => ({
+  const retryState = await t.run(async (ctx) => ({
     orders: await ctx.db.query("orders").withIndex("by_checkout_id", (q) => q.eq("checkoutId", "recovery-multistore-01")).take(10),
     checkout: await ctx.db.query("checkouts").withIndex("by_checkout_id", (q) => q.eq("checkoutId", "recovery-multistore-01")).unique(),
   }));
-  expect(state.orders).toHaveLength(2);
-  expect(state.checkout?.orderIds).toEqual(placed.orders.map((order) => order.orderId));
-  expect(state.orders.find((order) => order.storeId === fixture.storeA)?.status).toBe("rejected");
-  expect(state.orders.find((order) => order.storeId === fixture.storeB)).toMatchObject({
+  expect(retryState.orders).toHaveLength(2);
+  expect(retryState.checkout?.orderIds).toEqual(placed.orders.map((order) => order.orderId));
+  expect(retryState.orders.find((order) => order.storeId === fixture.storeA)?.status).toBe("rejected");
+  expect(retryState.orders.find((order) => order.storeId === fixture.storeB)).toMatchObject({
     status: "received", total: siblingOrder!.total, items: siblingOrder!.items,
   });
 });
@@ -690,3 +690,4 @@ test("multi-store staff handoff stays scoped and customers see both delivered ch
     ["confirmed", "preparing", "ready", "out_for_delivery", "delivered"],
   ]);
 });
+
