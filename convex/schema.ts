@@ -215,6 +215,7 @@ export default defineSchema({
         quantity: v.number(),
         lineTotal: v.number(),
         soldByWeight: v.boolean(),
+        prepared: v.optional(v.boolean()),
       }),
     ),
     destination: v.object({
@@ -272,6 +273,32 @@ export default defineSchema({
     updatedAt: v.number(),
     updatedBy: v.id("users"),
   }).index("by_store_driver", ["storeId", "driverUserId"]),
+  deliveryTracking: defineTable({
+    orderId: v.id("orders"),
+    storeId: v.id("stores"),
+    driverUserId: v.id("users"),
+    latitude: v.number(),
+    longitude: v.number(),
+    locationUpdatedAt: v.number(),
+    routeVersion: v.optional(v.number()),
+    routeStatus: v.union(v.literal("pending"), v.literal("available"), v.literal("unavailable")),
+    distanceMeters: v.optional(v.number()),
+    durationSeconds: v.optional(v.number()),
+    encodedPolyline: v.optional(v.string()),
+    routeRequestedAt: v.optional(v.number()),
+    routeUpdatedAt: v.optional(v.number()),
+    routeAnchorLatitude: v.optional(v.number()),
+    routeAnchorLongitude: v.optional(v.number()),
+    expiresAt: v.number(),
+  }).index("by_order", ["orderId"]),
+  deliveryConfirmationCodes: defineTable({
+    orderId: v.id("orders"),
+    customerUserId: v.id("users"),
+    code: v.string(),
+    failedAttempts: v.number(),
+    replacementAvailableAt: v.number(),
+    usedAt: v.optional(v.number()),
+  }).index("by_order", ["orderId"]),
   deliveryLandmarks: defineTable({
     storeId: v.id("stores"),
     name: v.string(),
@@ -317,3 +344,4 @@ export default defineSchema({
     .index("by_aggregate", ["aggregateType", "aggregateId", "occurredAt"])
     .index("by_store_time", ["storeId", "occurredAt"]),
 });
+

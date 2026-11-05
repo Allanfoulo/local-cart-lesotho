@@ -13,6 +13,7 @@ dist-ssr
 .output
 .netlify
 .superpowers/
+.playwright-e2e-output/
 .vinxi
 .tanstack/**
 .nitro
@@ -20,6 +21,7 @@ dist-ssr
 .env
 .env.*
 !.env.example
+!.env.e2e.example
 
 # Wrangler / Cloudflare
 .wrangler/

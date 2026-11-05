@@ -18,6 +18,8 @@ import {
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ProductTile } from "@/components/store/ProductTile";
 import { Input } from "@/components/ui/input";
 import { DeliveryPlacesManager } from "@/components/admin/DeliveryPlacesManager";
 import { DispatchBoard } from "@/components/admin/orders/DispatchBoard";
@@ -25,16 +27,18 @@ import { CatalogueManagement } from "@/components/admin/CatalogueManagement";
 import { OffersManagement } from "@/components/admin/OffersManagement";
 import { MembershipManagement } from "@/components/admin/MembershipManagement";
 import { StoresManagement } from "@/components/admin/StoresManagement";
+import { OwnerSetupChecklist } from "@/components/admin/OwnerSetupChecklist";
 import { ManagementStoreSelector } from "@/components/admin/ManagementStoreSelector";
-import {
-  useAppStore,
-  ORDER_STATUS_LABEL,
-  PAYMENT_LABEL,
-  stockStatus,
-} from "@/lib/app-store";
-import { formatDate, formatM } from "@/lib/format";
+import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
+import { ResponsiveDashboardNavigation } from "@/components/layout/ResponsiveDashboardNavigation";
+import { useAppStore, ORDER_STATUS_LABEL, PAYMENT_LABEL, stockStatus } from "@/lib/app-store";
+import { formatDate, formatM, quantityLabel } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
-import { canAssignPreparation, nextOrderStatus, type OrderWorkflowRole } from "@/domain/orders/workflow";
+import {
+  canAssignPreparation,
+  nextOrderStatus,
+  type OrderWorkflowRole,
+} from "@/domain/orders/workflow";
 
 const sections = [
   ["overview", "Today", LayoutDashboard],
@@ -51,16 +55,19 @@ const sections = [
 type Section = (typeof sections)[number][0];
 type WorkspaceSection = Section | "stores";
 
-export function StaffWorkspace() {
+export function StaffWorkspace({ initialStoreId }: { initialStoreId?: string }) {
   const store = useAppStore();
   const access = useQuery(api.memberships.currentAccess, {});
   const { signOut } = useAuthActions();
   const [section, setSection] = useState<WorkspaceSection>("overview");
-  const [orderStoreId, setOrderStoreId] = useState<string>("");
+  const [orderStoreId, setOrderStoreId] = useState<string>(initialStoreId ?? "");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [notice, setNotice] = useState("");
-  const selectedOrderStoreId = access?.stores.find((item) => item.id === orderStoreId)?.id ?? access?.stores[0]?.id ?? store.managementStore.id;
+  const selectedOrderStoreId =
+    access?.stores.find((item) => item.id === orderStoreId)?.id ??
+    access?.stores[0]?.id ??
+    store.managementStore.id;
   const orders = useMemo(
     () =>
       store.orders.filter(
@@ -74,9 +81,14 @@ export function StaffWorkspace() {
     [store.orders, selectedOrderStoreId, query, statusFilter],
   );
   const openOrders = store.orders.filter(
-    (order) => order.storeId === selectedOrderStoreId && !["delivered", "rejected", "cancelled"].includes(order.status),
+    (order) =>
+      order.storeId === selectedOrderStoreId &&
+      !["delivered", "rejected", "cancelled"].includes(order.status),
   );
-  const lowStock = store.managementProducts.filter((product) => product.storeId === store.managementStore.id && stockStatus(product) !== "in_stock");
+  const lowStock = store.managementProducts.filter(
+    (product) =>
+      product.storeId === store.managementStore.id && stockStatus(product) !== "in_stock",
+  );
   const todaysSales = store.orders
     .filter(
       (order) =>
@@ -91,104 +103,205 @@ export function StaffWorkspace() {
   };
   const workflowRole = (storeId: string | undefined): OrderWorkflowRole => {
     if (access?.isSuperadmin) return "store_manager";
-    const roles = access?.memberships.filter((membership) => membership.storeId === storeId && membership.status === "active").map((membership) => membership.role) ?? [];
+    const roles =
+      access?.memberships
+        .filter((membership) => membership.storeId === storeId && membership.status === "active")
+        .map((membership) => membership.role) ?? [];
     if (roles.includes("store_owner")) return "store_owner";
     if (roles.includes("store_manager")) return "store_manager";
     if (roles.includes("dispatcher")) return "dispatcher";
     if (roles.includes("driver")) return "driver";
     return "order_staff";
   };
-  const driversForStore = store.drivers.filter((driver) => driver.storeIds.includes(selectedOrderStoreId));
-  const preparationStaffForStore = store.preparationStaff.filter((staff) => staff.storeIds.includes(selectedOrderStoreId));
-  const navigation = access?.isSuperadmin ? [...sections, ["stores", "Stores", StoreIcon] as const] : sections;
+  const driversForStore = store.drivers.filter((driver) =>
+    driver.storeIds.includes(selectedOrderStoreId),
+  );
+  const preparationStaffForStore = store.preparationStaff.filter((staff) =>
+    staff.storeIds.includes(selectedOrderStoreId),
+  );
+  const navigation = access?.isSuperadmin
+    ? [...sections, ["stores", "Stores", StoreIcon] as const]
+    : sections;
   const heading = navigation.find(([id]) => id === section)?.[1] ?? "Today";
+  const isStoreAdmin =
+    access?.memberships.some(
+      (membership) =>
+        membership.storeId === selectedOrderStoreId &&
+        membership.status === "active" &&
+        (membership.role === "store_owner" || membership.role === "store_manager"),
+    ) ?? false;
+
+  useEffect(() => {
+    if (!access || !initialStoreId || !access.stores.some((item) => item.id === initialStoreId))
+      return;
+    setOrderStoreId(initialStoreId);
+    store.setManagementStore(initialStoreId);
+  }, [access, initialStoreId, store.setManagementStore]);
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-9">
-      <header className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-primary">REETAPELE · STAFF</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">{heading}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your store workspace. Authorized changes sync across the team.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="outline" className="min-h-11" onClick={() => void signOut()}>Sign out</Button>
-          <span className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-primary">
-            <span className="size-2 rounded-full bg-primary" />
-            {(access?.stores.find((item) => item.id === selectedOrderStoreId)?.enabled ?? store.managementStore.enabled) ? "Store published" : "Store paused"}
-          </span>
-        </div>
-      </header>
-      <nav className="mb-7 flex gap-2 overflow-x-auto pb-2" aria-label="Staff workspace sections">
-        {navigation.map(([id, label, Icon]) => (
-          <button
-            key={id}
-            aria-current={section === id ? "page" : undefined}
-            onClick={() => setSection(id)}
-            className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${section === id ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
-          >
-            <Icon className="size-4" />
-            {label}
-          </button>
-        ))}
-      </nav>
-      {access?.stores && access.stores.length > 1 && (section === "overview" || section === "orders" || section === "dispatch") && (
-        <label className="mb-5 block max-w-sm text-sm font-medium">
-          Orders for
-          <select aria-label="Orders for store" className="mt-1.5 h-11 w-full rounded-xl border bg-card px-3" value={selectedOrderStoreId} onChange={(event) => setOrderStoreId(event.target.value)}>
-            {access.stores.map((item) => <option key={item.id} value={item.id}>{item.name}{item.enabled ? "" : " (paused)"}</option>)}
-          </select>
-        </label>
-      )}
-      {notice && (
-        <p role="status" className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-primary">
-          {notice}
-        </p>
-      )}
-      {section === "overview" && (
-        <div className="space-y-8">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Metric
-              label="New orders"
-              value={String(openOrders.filter((o) => o.status === "received").length)}
-              detail="Waiting for confirmation"
-            />
-            <Metric
-              label="Being prepared"
-              value={String(
-                openOrders.filter((o) => ["confirmed", "preparing"].includes(o.status)).length,
-              )}
-              detail="Active pick and pack"
-            />
-            <button className="text-left" onClick={() => setSection("stock")}>
-              <Metric
-                label="Stock to check"
-                value={String(lowStock.length)}
-                detail="Low or out of stock"
-              />
-            </button>
-            <Metric
-              label="Delivered today"
-              value={formatM(todaysSales)}
-              detail="Completed order sales"
-            />
+    <ResponsiveDashboardNavigation
+      title="Staff workspace"
+      items={navigation.map(([id, label, icon]) => ({ id, label, icon }))}
+      activeItem={section}
+      onSelect={setSection}
+      className="min-h-svh max-w-none px-4 py-6 md:h-dvh md:min-h-0 md:overflow-hidden md:px-8 md:py-9"
+    >
+      <main className="min-w-0">
+        <header className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-primary">REETAPELE Â· STAFF</p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight">{heading}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your store workspace. Authorized changes sync across the team.
+            </p>
           </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <WorkspaceSwitcher mobileMenuAlign="start" />
+            <Button variant="outline" className="min-h-11" onClick={() => void signOut()}>
+              Sign out
+            </Button>
+            <span className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-primary">
+              <span className="size-2 rounded-full bg-primary" />
+              {(access?.stores.find((item) => item.id === selectedOrderStoreId)?.enabled ??
+              store.managementStore.enabled)
+                ? "Store published"
+                : "Store paused"}
+            </span>
+          </div>
+        </header>
+        {access?.stores &&
+          access.stores.length > 1 &&
+          (section === "overview" || section === "orders" || section === "dispatch") && (
+            <label className="mb-5 block max-w-sm text-sm font-medium">
+              Orders for
+              <select
+                aria-label="Orders for store"
+                className="mt-1.5 h-11 w-full rounded-xl border bg-card px-3"
+                value={selectedOrderStoreId}
+                onChange={(event) => setOrderStoreId(event.target.value)}
+              >
+                {access.stores.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                    {item.enabled ? "" : " (paused)"}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        {notice && (
+          <p role="status" className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-primary">
+            {notice}
+          </p>
+        )}
+        {section === "overview" && (
+          <div className="space-y-8">
+            {isStoreAdmin && !access?.isSuperadmin && (
+              <OwnerSetupChecklist
+                storeId={selectedOrderStoreId}
+                onOpenSection={(nextSection) => {
+                  store.setManagementStore(selectedOrderStoreId);
+                  setSection(nextSection);
+                }}
+              />
+            )}
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Metric
+                label="New orders"
+                value={String(openOrders.filter((o) => o.status === "received").length)}
+                detail="Waiting for confirmation"
+              />
+              <Metric
+                label="Being prepared"
+                value={String(
+                  openOrders.filter((o) => ["confirmed", "preparing"].includes(o.status)).length,
+                )}
+                detail="Active pick and pack"
+              />
+              <button className="text-left" onClick={() => setSection("stock")}>
+                <Metric
+                  label="Stock to check"
+                  value={String(lowStock.length)}
+                  detail="Low or out of stock"
+                />
+              </button>
+              <Metric
+                label="Delivered today"
+                value={formatM(todaysSales)}
+                detail="Completed order sales"
+              />
+            </div>
+            <section>
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold">Next tasks</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Work through orders in the order they need attention.
+                  </p>
+                </div>
+                <Button variant="outline" onClick={() => setSection("orders")}>
+                  All orders
+                </Button>
+              </div>
+              <div className="divide-y rounded-2xl border bg-card">
+                {openOrders.slice(0, 5).map((order) => (
+                  <OrderRow
+                    key={order.id}
+                    order={order}
+                    setStatus={setStatus}
+                    assign={store.assignDriver}
+                    paymentStatus={store.setOrderPaymentStatus}
+                    assignPreparation={store.assignPreparationStaff}
+                    preparationStaff={preparationStaffForStore}
+                    drivers={driversForStore}
+                    role={workflowRole(order.storeId)}
+                    currentUserId={access?.userId}
+                    setItemPrepared={store.setOrderItemPrepared}
+                  />
+                ))}
+                {openOrders.length === 0 && (
+                  <Empty text="All caught up. New orders will appear here." />
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+        {section === "orders" && (
           <section>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold">Next tasks</h2>
+                <h2 className="text-xl font-semibold">Order queue</h2>
                 <p className="text-sm text-muted-foreground">
-                  Work through orders in the order they need attention.
+                  Confirm, prepare, and assign deliveries.
                 </p>
               </div>
-              <Button variant="outline" onClick={() => setSection("orders")}>
-                All orders
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    placeholder="Search orders or areas"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                </div>
+                <select
+                  aria-label="Filter orders by status"
+                  className="h-10 rounded-lg border bg-card px-3 text-sm"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">All statuses</option>
+                  {Object.entries(ORDER_STATUS_LABEL).map(([id, label]) => (
+                    <option key={id} value={id}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="divide-y rounded-2xl border bg-card">
-              {openOrders.slice(0, 5).map((order) => (
+              {orders.map((order) => (
                 <OrderRow
                   key={order.id}
                   order={order}
@@ -199,81 +312,29 @@ export function StaffWorkspace() {
                   preparationStaff={preparationStaffForStore}
                   drivers={driversForStore}
                   role={workflowRole(order.storeId)}
+                  currentUserId={access?.userId}
+                  setItemPrepared={store.setOrderItemPrepared}
                 />
               ))}
-              {openOrders.length === 0 && (
-                <Empty text="All caught up. New orders will appear here." />
-              )}
+              {orders.length === 0 && <Empty text="No matching orders." />}
             </div>
           </section>
-        </div>
-      )}
-      {section === "orders" && (
-        <section>
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-xl font-semibold">Order queue</h2>
-              <p className="text-sm text-muted-foreground">
-                Confirm, prepare, and assign deliveries.
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                <Input
-                  className="pl-9"
-                  placeholder="Search orders or areas"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-              </div>
-              <select
-                aria-label="Filter orders by status"
-                className="h-10 rounded-lg border bg-card px-3 text-sm"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">All statuses</option>
-                {Object.entries(ORDER_STATUS_LABEL).map(([id, label]) => (
-                  <option key={id} value={id}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="divide-y rounded-2xl border bg-card">
-            {orders.map((order) => (
-              <OrderRow
-                key={order.id}
-                order={order}
-                setStatus={setStatus}
-                assign={store.assignDriver}
-                paymentStatus={store.setOrderPaymentStatus}
-                assignPreparation={store.assignPreparationStaff}
-                preparationStaff={preparationStaffForStore}
-                drivers={driversForStore}
-                role={workflowRole(order.storeId)}
-              />
-            ))}
-            {orders.length === 0 && <Empty text="No matching orders." />}
-          </div>
-        </section>
-      )}
-      {section === "customers" && <CustomersPanel />}
-      {section === "dispatch" && <DispatchBoard storeId={selectedOrderStoreId} />}
-      {section === "stock" && <CatalogueManagement />}
-      {section === "promotions" && <OffersManagement />}
-      {section === "places" && <DeliveryPlacesManager />}
-      {section === "reports" && <ReportsPanel />}
-      {section === "settings" && <SettingsPanel />}
-      {section === "team" && <MembershipManagement />}
-      {section === "stores" && access?.isSuperadmin && <StoresManagement />}
-      <p className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
-        <CheckCircle2 className="size-4 text-primary" />
-        Role permissions are checked by Convex and changes update across active sessions.
-      </p>
-    </main>
+        )}
+        {section === "customers" && <CustomersPanel />}
+        {section === "dispatch" && <DispatchBoard storeId={selectedOrderStoreId} />}
+        {section === "stock" && <CatalogueManagement />}
+        {section === "promotions" && <OffersManagement />}
+        {section === "places" && <DeliveryPlacesManager />}
+        {section === "reports" && <ReportsPanel />}
+        {section === "settings" && <SettingsPanel />}
+        {section === "team" && <MembershipManagement />}
+        {section === "stores" && access?.isSuperadmin && <StoresManagement />}
+        <p className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
+          <CheckCircle2 className="size-4 text-primary" />
+          Role permissions are checked by Convex and changes update across active sessions.
+        </p>
+      </main>
+    </ResponsiveDashboardNavigation>
   );
 }
 
@@ -336,7 +397,7 @@ function CustomersPanel() {
                     >
                       {customer.phone}
                     </a>
-                    {customer.email && <span> · {customer.email}</span>}
+                    {customer.email && <span> Â· {customer.email}</span>}
                   </p>
                 </div>
                 <div className="text-sm sm:text-right">
@@ -358,10 +419,10 @@ function CustomersPanel() {
                         className="flex flex-wrap justify-between gap-x-4 gap-y-1 px-3 py-2"
                       >
                         <span>
-                          {order.number} · {order.address.area}
+                          {order.number} Â· {order.address.area}
                         </span>
                         <span className="text-muted-foreground">
-                          {ORDER_STATUS_LABEL[order.status]} · {formatM(order.total)} ·{" "}
+                          {ORDER_STATUS_LABEL[order.status]} Â· {formatM(order.total)} Â·{" "}
                           {formatDate(order.createdAt)}
                         </span>
                       </li>
@@ -494,7 +555,7 @@ function ReportsPanel() {
                       ?.name ?? "Removed product"}
                   </span>
                   <span className="text-right font-medium">
-                    {item.quantity} {item.unit} · {formatM(item.value)}
+                    {item.quantity} {item.unit} Â· {formatM(item.value)}
                   </span>
                 </li>
               ))}
@@ -507,7 +568,7 @@ function ReportsPanel() {
         </section>
       </div>
       <p className="rounded-xl bg-muted/60 p-3 text-xs text-muted-foreground">
-        Paid and outstanding totals follow each order’s recorded payment status; delivery status
+        Paid and outstanding totals follow each orderâ€™s recorded payment status; delivery status
         does not count as proof of payment. These are operational summaries, not accounting exports.
       </p>
     </section>
@@ -525,6 +586,8 @@ function OrderRow({
   drivers,
   preparationStaff,
   role,
+  currentUserId,
+  setItemPrepared,
 }: {
   order: ReturnType<typeof useAppStore>["orders"][number];
   setStatus: (id: string, status: OrderStatus) => void;
@@ -534,10 +597,17 @@ function OrderRow({
   drivers: ReturnType<typeof useAppStore>["drivers"];
   preparationStaff: ReturnType<typeof useAppStore>["preparationStaff"];
   role: OrderWorkflowRole;
+  currentUserId?: string;
+  setItemPrepared: (orderId: string, productId: string, prepared: boolean) => void;
 }) {
-  const next = nextOrderStatus(role, order.status);
-  const canManage = canAssignPreparation(role);
+  const effectiveRole = role === "dispatcher" && order.assignedStaffUserId === currentUserId ? "order_staff" : role;
+  const next = nextOrderStatus(effectiveRole, order.status);
+  const canManage = canAssignPreparation(effectiveRole);
   const canDispatch = canManage || role === "dispatcher";
+  const canPrepare = canManage || (effectiveRole === "order_staff" && order.assignedStaffUserId === currentUserId);
+  const preparedCount = order.items.filter((item) => item.prepared === true).length;
+  const allItemsPrepared = order.items.length > 0 && preparedCount === order.items.length;
+  const waitingForPreparationChecklist = next === "ready" && order.status === "preparing" && !allItemsPrepared;
   return (
     <article className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
       <div className="min-w-0">
@@ -547,18 +617,48 @@ function OrderRow({
             {ORDER_STATUS_LABEL[order.status]}
           </span>
           <span className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</span>
-          {order.assignedStaff && <span className="text-xs text-muted-foreground">Prepared by {order.assignedStaff}</span>}
+          {order.assignedStaff && (
+            <span className="text-xs text-muted-foreground">Prepared by {order.assignedStaff}</span>
+          )}
         </div>
         <p className="mt-1 text-sm">
-          {order.customer.name} · {order.customer.phone} · {order.address.area}
+          {order.customer.name} Â· {order.customer.phone} Â· {order.address.area}
         </p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
-          {order.items.map((i) => `${i.quantity} ${i.name}`).join(" · ")}
-        </p>
+        <section className="mt-3" aria-label={`Items for order ${order.number}`}>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold">Preparation checklist</h4>
+            <span className="text-xs text-muted-foreground">{preparedCount} of {order.items.length} ready</span>
+          </div>
+          <ul className="divide-y rounded-xl border">
+            {order.items.map((item) => (
+              <li key={item.id} className="flex items-center gap-3 p-3">
+                <ProductTile emoji={item.emoji} name={item.name} size="sm" className="size-14 rounded-lg text-2xl" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{item.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {quantityLabel(item.quantity, item.soldByWeight)}{item.soldByWeight ? "" : ` ${item.unit}`}
+                  </p>
+                </div>
+                <label className="flex min-h-11 shrink-0 items-center gap-2 text-sm font-medium">
+                  <Checkbox
+                    aria-label={`Mark ${item.name} prepared for order ${order.number}`}
+                    checked={item.prepared === true}
+                    disabled={!canPrepare || order.status !== "preparing"}
+                    onCheckedChange={(checked) => setItemPrepared(order.id, item.productId, checked === true)}
+                  />
+                  <span className="hidden sm:inline">Done</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          {order.status !== "preparing" && ["received", "confirmed"].includes(order.status) && (
+            <p className="mt-2 text-xs text-muted-foreground">Start preparing this order before checking off items.</p>
+          )}
+        </section>
         <p className="mt-1 text-sm font-semibold">
           {formatM(order.total)}{" "}
           <span className="font-normal text-muted-foreground">
-            · {PAYMENT_LABEL[order.payment.method]} ({order.payment.status})
+            Â· {PAYMENT_LABEL[order.payment.method]} ({order.payment.status})
           </span>
         </p>
         <details className="mt-2">
@@ -567,7 +667,7 @@ function OrderRow({
           </summary>
           <p className="mt-2 text-sm">
             {order.address.address}
-            {order.address.landmark ? ` · Near ${order.address.landmark}` : ""}
+            {order.address.landmark ? ` Â· Near ${order.address.landmark}` : ""}
           </p>
           {order.address.instructions && (
             <p className="text-sm text-muted-foreground">Driver: {order.address.instructions}</p>
@@ -578,7 +678,7 @@ function OrderRow({
                 {event.status === "note"
                   ? event.note
                   : (ORDER_STATUS_LABEL[event.status as OrderStatus] ?? "Order placed")}{" "}
-                ·{" "}
+                Â·{" "}
                 {new Date(event.at).toLocaleString("en-GB", {
                   dateStyle: "medium",
                   timeStyle: "short",
@@ -589,43 +689,76 @@ function OrderRow({
         </details>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {canManage && preparationStaff.length > 0 && !["ready", "out_for_delivery", "delivered", "rejected", "cancelled"].includes(order.status) && <select
-          aria-label={`Assign order preparation for ${order.number}`}
-          className="h-9 rounded-lg border bg-background px-2 text-sm"
-          value={order.assignedStaffUserId || "Not assigned"}
-          onChange={(e) => assignPreparation(order.id, e.target.value === "Not assigned" ? "" : e.target.value)}
-        >
-          <option value="Not assigned">No prep assignee</option>
-          {preparationStaff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
-        </select>}
-        {canDispatch && <select
-          aria-label={`Assign driver for ${order.number}`}
-          className="h-9 rounded-lg border bg-background px-2 text-sm"
-          value={order.driverUserId || "Not assigned"}
-          onChange={(e) =>
-            assign(order.id, e.target.value === "Not assigned" ? "" : e.target.value)
-          }
-        >
-          <option value="Not assigned">Not assigned</option>
-          {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>}
-        {canManage && <select
-          aria-label={`Payment status for ${order.number}`}
-          className="h-9 rounded-lg border bg-background px-2 text-sm"
-          value={order.payment.status}
-          onChange={(e) => paymentStatus(order.id, e.target.value as "pending" | "paid" | "unpaid")}
-        >
-          <option value="pending">Payment pending</option>
-          <option value="paid">Paid</option>
-          <option value="unpaid">Unpaid</option>
-        </select>}
+        {canManage &&
+          preparationStaff.length > 0 &&
+          !["ready", "out_for_delivery", "delivered", "rejected", "cancelled"].includes(
+            order.status,
+          ) && (
+            <select
+              aria-label={`Assign order preparation for ${order.number}`}
+              className="h-9 rounded-lg border bg-background px-2 text-sm"
+              value={order.assignedStaffUserId || "Not assigned"}
+              onChange={(e) =>
+                assignPreparation(order.id, e.target.value === "Not assigned" ? "" : e.target.value)
+              }
+            >
+              <option value="Not assigned">No prep assignee</option>
+              {preparationStaff.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+          )}
+        {canDispatch && (
+          <select
+            aria-label={`Assign driver for ${order.number}`}
+            className="h-9 rounded-lg border bg-background px-2 text-sm"
+            value={order.driverUserId || "Not assigned"}
+            onChange={(e) =>
+              assign(order.id, e.target.value === "Not assigned" ? "" : e.target.value)
+            }
+          >
+            <option value="Not assigned">Not assigned</option>
+            {drivers.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        )}
+        {canManage && (
+          <select
+            aria-label={`Payment status for ${order.number}`}
+            className="h-9 rounded-lg border bg-background px-2 text-sm"
+            value={order.payment.status}
+            onChange={(e) =>
+              paymentStatus(order.id, e.target.value as "pending" | "paid" | "unpaid")
+            }
+          >
+            <option value="pending">Payment pending</option>
+            <option value="paid">Paid</option>
+            <option value="unpaid">Unpaid</option>
+          </select>
+        )}
         {order.status !== "delivered" && order.status !== "cancelled" && (
           <>
-            {next !== order.status && <Button size="sm" onClick={() => setStatus(order.id, next)}>
-              {next === order.status ? "Current" : `Mark ${ORDER_STATUS_LABEL[next]}`}
-            </Button>}
-            {canManage && order.status === "received" && <Button size="sm" variant="outline" onClick={() => setStatus(order.id, "rejected")}>Reject order</Button>}
-            {canManage && !["rejected", "cancelled"].includes(order.status) && <Button size="sm" variant="outline" onClick={() => setStatus(order.id, "cancelled")}>Cancel</Button>}
+            {next !== order.status && (
+              <Button size="sm" disabled={waitingForPreparationChecklist} onClick={() => setStatus(order.id, next)}>
+                {next === order.status ? "Current" : `Mark ${ORDER_STATUS_LABEL[next]}`}
+              </Button>
+            )}
+            {waitingForPreparationChecklist && <p className="w-full text-sm text-muted-foreground">Check off every item before marking this order ready.</p>}
+            {canManage && order.status === "received" && (
+              <Button size="sm" variant="outline" onClick={() => setStatus(order.id, "rejected")}>
+                Reject order
+              </Button>
+            )}
+            {canManage && !["rejected", "cancelled"].includes(order.status) && (
+              <Button size="sm" variant="outline" onClick={() => setStatus(order.id, "cancelled")}>
+                Cancel
+              </Button>
+            )}
           </>
         )}
       </div>
@@ -645,7 +778,10 @@ function SettingsPanel() {
     setDraft({ ...shop, paymentOptions: { ...shop.paymentOptions, card: false } });
     setSaved(false);
   }, [shop]);
-  const textField = (name: "name" | "tagline" | "phone" | "whatsapp" | "address" | "openingHours", label: string) => (
+  const textField = (
+    name: "name" | "tagline" | "phone" | "whatsapp" | "address" | "openingHours",
+    label: string,
+  ) => (
     <label className="block text-sm font-medium">
       {label}
       <Input
@@ -756,7 +892,10 @@ function SettingsPanel() {
               checked={key === "card" ? false : draft.paymentOptions[key]}
               disabled={key === "card"}
               onChange={(e) => {
-                setDraft((current) => ({ ...current, paymentOptions: { ...current.paymentOptions, [key]: e.target.checked } }));
+                setDraft((current) => ({
+                  ...current,
+                  paymentOptions: { ...current.paymentOptions, [key]: e.target.checked },
+                }));
                 setSaved(false);
               }}
             />
@@ -764,9 +903,17 @@ function SettingsPanel() {
           </label>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">Card processing will become available after a payment provider is configured.</p>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <Button disabled={saving} onClick={() => void submitSettings()}>{saving ? "Saving…" : "Save settings"}</Button>
+      <p className="text-xs text-muted-foreground">
+        Card processing will become available after a payment provider is configured.
+      </p>
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      <Button disabled={saving} onClick={() => void submitSettings()}>
+        {saving ? "Savingâ€¦" : "Save settings"}
+      </Button>
       {saved && (
         <p role="status" className="text-sm text-primary">
           Shop settings saved to Convex.
@@ -775,3 +922,4 @@ function SettingsPanel() {
     </section>
   );
 }
+

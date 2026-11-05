@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ProductTile } from "@/components/store/ProductTile";
 import { useAppStore, ORDER_STATUS_LABEL, PAYMENT_LABEL } from "@/lib/app-store";
-import { formatDate, formatM } from "@/lib/format";
+import { formatDate, formatM, quantityLabel } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -32,8 +34,19 @@ export function DispatchOrdersQueue({ storeId }: { storeId?: string } = {}) {
             const role: OrderWorkflowRole = access?.isSuperadmin ? "store_manager" :
               storeRoles.some((membership) => membership.role === "store_owner") ? "store_owner" :
               storeRoles.some((membership) => membership.role === "store_manager") ? "store_manager" :
+              storeRoles.some((membership) => membership.role === "order_staff" && order.assignedStaffUserId === access?.userId) ? "order_staff" :
               storeRoles.some((membership) => membership.role === "dispatcher") ? "dispatcher" : "order_staff";
+            const canPrepare = Boolean(
+              access?.isSuperadmin ||
+              storeRoles.some((membership) =>
+                membership.role === "store_owner" ||
+                membership.role === "store_manager" ||
+                (membership.role === "order_staff" && order.assignedStaffUserId === access?.userId),
+              ),
+            );
             const nextStatus = nextOrderStatus(role, order.status);
+            const allItemsPrepared = order.items.length > 0 && order.items.every((item) => item.prepared === true);
+            const waitingForPreparationChecklist = nextStatus === "ready" && order.status === "preparing" && !allItemsPrepared;
             const preparationStaff = store.preparationStaff.filter((member) => member.storeIds.includes(order.storeId ?? ""));
             const drivers = store.drivers.filter((driver) => driver.storeIds.includes(order.storeId ?? ""));
             return (
@@ -42,23 +55,53 @@ export function DispatchOrdersQueue({ storeId }: { storeId?: string } = {}) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-semibold">
-                        {order.number} · {order.customer.name}
+                        {order.number} Â· {order.customer.name}
                       </p>
                       <p className="mt-0.5 text-sm text-muted-foreground">
-                        {order.address.area} · {formatDate(order.createdAt)}
+                        {order.address.area} Â· {formatDate(order.createdAt)}
                       </p>
                     </div>
                     <span className="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium">
                       {ORDER_STATUS_LABEL[order.status]}
                     </span>
                   </div>
-                  <p className="mt-3 text-sm">
-                    {order.items.map((item) => `${item.quantity} ${item.name}`).join(" · ")}
-                  </p>
+                  <section className="mt-4" aria-label={`Items for order ${order.number}`}>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-semibold">Preparation checklist</h3>
+                      <span className="text-xs text-muted-foreground">
+                        {order.items.filter((item) => item.prepared === true).length} of {order.items.length} ready
+                      </span>
+                    </div>
+                    <ul className="divide-y rounded-xl border">
+                      {order.items.map((item) => (
+                        <li key={item.id} className="flex items-center gap-3 p-3">
+                          <ProductTile emoji={item.emoji} name={item.name} size="sm" className="size-14 rounded-lg text-2xl" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{item.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {quantityLabel(item.quantity, item.soldByWeight)}{item.soldByWeight ? "" : ` ${item.unit}`}
+                            </p>
+                          </div>
+                          <label className="flex min-h-11 shrink-0 items-center gap-2 text-sm font-medium">
+                            <Checkbox
+                              aria-label={`Mark ${item.name} prepared for order ${order.number}`}
+                              checked={item.prepared === true}
+                              disabled={!canPrepare || order.status !== "preparing"}
+                              onCheckedChange={(checked) => store.setOrderItemPrepared(order.id, item.productId, checked === true)}
+                            />
+                            <span className="hidden sm:inline">Done</span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                    {order.status !== "preparing" && ["received", "confirmed"].includes(order.status) && (
+                      <p className="mt-2 text-xs text-muted-foreground">Start preparing this order before checking off items.</p>
+                    )}
+                  </section>
                   <p className="mt-1 text-sm font-semibold">
                     {formatM(order.total)}
                     <span className="font-normal text-muted-foreground">
-                      {` · ${PAYMENT_LABEL[order.payment.method]} (${order.payment.status})`}
+                      {` Â· ${PAYMENT_LABEL[order.payment.method]} (${order.payment.status})`}
                     </span>
                   </p>
                   {order.assignedStaff && <p className="mt-1 text-sm text-muted-foreground">Preparation: {order.assignedStaff}</p>}
@@ -138,7 +181,8 @@ export function DispatchOrdersQueue({ storeId }: { storeId?: string } = {}) {
                     className="mt-3 h-12 w-full text-base"
                     disabled={
                       nextStatus === order.status ||
-                      (nextStatus === "out_for_delivery" && !order.driver)
+                      (nextStatus === "out_for_delivery" && !order.driver) ||
+                      waitingForPreparationChecklist
                     }
                     onClick={() => store.updateOrderStatus(order.id, nextStatus as OrderStatus)}
                   >
@@ -146,6 +190,7 @@ export function DispatchOrdersQueue({ storeId }: { storeId?: string } = {}) {
                       ? "Assign a driver to continue"
                       : `Mark ${ORDER_STATUS_LABEL[nextStatus]}`}
                   </Button>
+                  {waitingForPreparationChecklist && <p className="mt-2 text-center text-sm text-muted-foreground">Check off every item before marking this order ready.</p>}
                   {canManagePayment && order.status === "received" && <Button variant="outline" className="mt-2 w-full" onClick={() => store.updateOrderStatus(order.id, "rejected")}>Reject order</Button>}
                   {canManagePayment && !["rejected", "cancelled"].includes(order.status) && <Button variant="outline" className="mt-2 w-full" onClick={() => store.updateOrderStatus(order.id, "cancelled")}>Cancel order</Button>}
                   {!canDispatch && order.status === "ready" && <p className="mt-2 text-center text-sm text-muted-foreground">Ready for dispatch.</p>}
@@ -162,3 +207,4 @@ export function DispatchOrdersQueue({ storeId }: { storeId?: string } = {}) {
     </section>
   );
 }
+

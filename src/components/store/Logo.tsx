@@ -12,17 +12,17 @@ export function Logo({
   compact?: boolean;
 }) {
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex min-w-0 items-center gap-2", className)}>
       <img
         src="/brand/reetapele/pwa/reetapele-192.svg"
         alt=""
         aria-hidden="true"
         className="size-9 shrink-0 rounded-xl object-contain"
       />
-      <span className="leading-tight">
-        <span className="block text-base font-bold tracking-tight">{name}</span>
+      <span className="min-w-0 leading-tight">
+        <span className="block truncate text-base font-bold tracking-tight">{name}</span>
         {!compact && tagline ? (
-          <span className="block text-[11px] text-muted-foreground">{tagline}</span>
+          <span className="block truncate text-[11px] text-muted-foreground">{tagline}</span>
         ) : null}
       </span>
     </div>

@@ -31,10 +31,9 @@ export function DispatchBoard({ storeId }: { storeId?: string } = {}) {
   const dispatchDrivers = store.drivers.filter((driver) => storeId
     ? driver.storeIds.includes(storeId)
     : access?.isSuperadmin || driver.storeIds.some((authorizedStoreId) => canDispatchStore(authorizedStoreId)));
-  const assignedDrivers = dispatchOrders.flatMap((order) => order.driverUserId ? [order.driverUserId] : []);
-  const drivers = [...new Set([...dispatchDrivers.map((driver) => driver.id), ...assignedDrivers])];
-  const [driver, setDriver] = useState(drivers[0]!);
-  const activeDriver = drivers.includes(driver) ? driver : drivers[0]!;
+  const drivers = dispatchDrivers.map((item) => item.id);
+  const [driver, setDriver] = useState("");
+  const activeDriver = drivers.includes(driver) ? driver : (drivers[0] ?? "");
   const activeDriverName = dispatchDrivers.find((item) => item.id === activeDriver)?.name ?? dispatchOrders.find((order) => order.driverUserId === activeDriver)?.driver ?? "Driver";
   const assigned = dispatchOrders.filter(
     (order) => order.driverUserId === activeDriver && eligible.has(order.status),
@@ -78,7 +77,9 @@ export function DispatchBoard({ storeId }: { storeId?: string } = {}) {
             className="mt-1.5 h-12 w-full rounded-xl border bg-background px-3 sm:min-w-56"
             value={activeDriver}
             onChange={(event) => setDriver(event.target.value)}
+            disabled={drivers.length === 0}
           >
+            {drivers.length === 0 && <option value="">No active drivers</option>}
             {drivers.map((driverId) => (
               <option key={driverId} value={driverId}>
                 {dispatchDrivers.find((item) => item.id === driverId)?.name ?? dispatchOrders.find((order) => order.driverUserId === driverId)?.driver ?? "Driver"}
@@ -87,6 +88,12 @@ export function DispatchBoard({ storeId }: { storeId?: string } = {}) {
           </select>
         </label>
       </header>
+
+      {drivers.length === 0 && (
+        <p role="status" className="rounded-xl border border-dashed bg-card p-4 text-sm text-muted-foreground">
+          No active drivers are available. A store owner or manager needs to invite and activate a driver before ready orders can be assigned.
+        </p>
+      )}
 
       <section aria-labelledby="stop-order-title">
         <div className="mb-3 flex items-end justify-between gap-3">
@@ -174,10 +181,11 @@ export function DispatchBoard({ storeId }: { storeId?: string } = {}) {
                 </div>
                 <Button
                   className="h-11 w-full sm:w-auto"
+                  disabled={!activeDriver}
                   onClick={() => store.assignDriver(order.id, activeDriver)}
                 >
                   <UserPlus className="size-4" />
-                  Assign to {activeDriverName.split(" ")[0]}
+                  {activeDriver ? `Assign to ${activeDriverName.split(" ")[0]}` : "No driver available"}
                 </Button>
               </li>
             ))}

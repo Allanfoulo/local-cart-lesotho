@@ -144,6 +144,7 @@ interface AppStoreValue extends AppState {
   replaceStaffWorkspace: (workspace: { orders: Order[]; customers: Customer[]; drivers: AppState["drivers"]; preparationStaff?: AppState["preparationStaff"]; deliveryRouteSequence?: Record<string, string[]> }) => void;
   replaceDeliveryLandmarks: (places: DeliveryLandmark[]) => void;
   replaceCustomerAccount: (account: { customerId: string; name: string; phone: string; email: string; addresses: DeliveryAddress[]; favourites: string[]; preferences: Array<{ key: string; enabled: boolean }> }) => void;
+  resetIdentityBoundState: () => void;
   recordConvexCheckout: (input: {
     checkoutId: string;
     customer: { name: string; phone: string; email?: string };
@@ -174,7 +175,7 @@ interface AppStoreValue extends AppState {
   }) => Order[];
   // storefront
   setDeliveryArea: (area: string) => void;
-  toggleFavourite: (productId: string) => void;
+  toggleFavourite: (productId: string) => Promise<void>;
   // orders
   placeOrder: (input: {
     customer: { name: string; phone: string; email?: string };
@@ -183,6 +184,7 @@ interface AppStoreValue extends AppState {
     discount?: number;
   }) => Order;
   updateOrderStatus: (orderId: string, status: OrderStatus, note?: string) => void;
+  setOrderItemPrepared: (orderId: string, productId: string, prepared: boolean) => void;
   setOrderPaymentStatus: (orderId: string, status: Payment["status"]) => void;
   assignDriver: (orderId: string, driver: string) => void;
   assignPreparationStaff: (orderId: string, staffUserId: string) => void;
@@ -216,6 +218,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const createPlatformStoreMutation = useMutation(api.stores.create);
   const setPlatformStoreEnabledMutation = useMutation(api.stores.setEnabled);
   const updateOrderStatusMutation = useMutation(api.orders.updateStatus);
+  const setOrderItemPreparedMutation = useMutation(api.orders.setItemPrepared);
   const assignDriverMutation = useMutation(api.orders.assignDriver);
   const assignPreparationStaffMutation = useMutation(api.orders.assignPreparationStaff);
   const paymentStatusMutation = useMutation(api.orders.setPaymentStatus);
@@ -275,16 +278,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const replaceMarketplaceCatalog = useCallback(
     (catalog: { stores: Shop[]; categories: Category[]; products: Product[]; promotions?: Promotion[] }) => {
       patch((prev) => {
-        if (!catalog.stores.length) return prev;
         const selectedArea = catalog.stores.some((store) =>
           store.deliveryAreas.includes(prev.deliveryArea),
         )
           ? prev.deliveryArea
-          : catalog.stores[0]!.defaultDeliveryArea;
+          : catalog.stores[0]?.defaultDeliveryArea ?? prev.deliveryArea;
         const productsBySlug = new Map(catalog.products.map((product) => [product.slug, product]));
         return {
           ...prev,
-          shop: catalog.stores[0]!,
+          shop: catalog.stores[0] ?? prev.shop,
           stores: catalog.stores,
           categories: catalog.categories,
           products: catalog.products,
@@ -353,6 +355,27 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     }));
   }, [patch]);
 
+  const resetIdentityBoundState = useCallback(() => {
+    patch((prev) => ({
+      ...prev,
+      managementStores: [],
+      managementCategories: [],
+      managementProducts: [],
+      managementPromotions: [],
+      managementStoreId: "",
+      orders: [],
+      customers: [],
+      drivers: [],
+      preparationStaff: [],
+      notificationPreferences: seedNotificationPreferences,
+      savedAddresses: [],
+      deliveryLandmarks: [],
+      deliveryRouteSequence: {},
+      favourites: [],
+      account: { customerId: "", name: "", phone: "", email: undefined, signedIn: false },
+    }));
+  }, [patch]);
+
   const value = useMemo<AppStoreValue>(() => {
     const cartCount = state.cart.length;
     const cartSubtotal = Number(
@@ -364,7 +387,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       ...state,
       managementStore,
       setManagementStore: (storeId) => {
-        if (state.managementStores.some((store) => store.id === storeId)) {
+        if (state.managementStoreId !== storeId && state.managementStores.some((store) => store.id === storeId)) {
           patch((prev) => ({ ...prev, managementStoreId: storeId }));
         }
       },
@@ -378,6 +401,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       replaceStaffWorkspace,
       replaceDeliveryLandmarks,
       replaceCustomerAccount,
+      resetIdentityBoundState,
 
       recordConvexCheckout: ({ checkoutId, customer, address, payment, orders: receipts }) => {
         const orders: Order[] = receipts.map((receipt, index) => {
@@ -486,12 +510,31 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
       setDeliveryArea: (area) => patch((prev) => ({ ...prev, deliveryArea: area })),
 
-      toggleFavourite: (productId) => {
+      toggleFavourite: async (productId) => {
         if (!state.account.signedIn) {
           toast.error("Sign in to save products to your favourites.");
           return;
         }
-        void toggleFavouriteMutation({ productId: productId as Id<"products"> }).catch(reportFailure);
+        const wasSaved = state.favourites.includes(productId);
+        patch((prev) => ({
+          ...prev,
+          favourites: wasSaved
+            ? prev.favourites.filter((id) => id !== productId)
+            : [...prev.favourites, productId],
+        }));
+        try {
+          await toggleFavouriteMutation({ productId: productId as Id<"products"> });
+        } catch (reason) {
+          patch((prev) => ({
+            ...prev,
+            favourites: wasSaved
+              ? prev.favourites.includes(productId)
+                ? prev.favourites
+                : [...prev.favourites, productId]
+              : prev.favourites.filter((id) => id !== productId),
+          }));
+          reportFailure(reason);
+        }
       },
 
       placeOrder: ({ customer, address, payment, discount = 0 }) => {
@@ -557,6 +600,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
       updateOrderStatus: (orderId, status) => {
         void updateOrderStatusMutation({ orderId: orderId as Id<"orders">, status }).catch(reportFailure);
+      },
+
+      setOrderItemPrepared: (orderId, productId, prepared) => {
+        void setOrderItemPreparedMutation({
+          orderId: orderId as Id<"orders">,
+          productId: productId as Id<"products">,
+          prepared,
+        }).catch(reportFailure);
       },
 
       setOrderPaymentStatus: (orderId, status) => {
@@ -681,7 +732,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
       removeDeliveryLandmark: (id) => { void removePlaceMutation({ placeId: id as Id<"deliveryLandmarks"> }).catch(reportFailure); },
     };
-  }, [state, patch, replaceMarketplaceCatalog, replaceManagementWorkspace, replaceStaffWorkspace, replaceDeliveryLandmarks, replaceCustomerAccount, sendProduct, deleteProductMutation, saveCategoryMutation, savePromotionMutation, saveStoreSettingsMutation, createPlatformStoreMutation, setPlatformStoreEnabledMutation, updateOrderStatusMutation, assignDriverMutation, assignPreparationStaffMutation, paymentStatusMutation, routeSequenceMutation, toggleFavouriteMutation, setPreferenceMutation, updateProfileMutation, saveAddressMutation, removeAddressMutation, savePlaceMutation, removePlaceMutation, reportFailure]);
+  }, [state, patch, replaceMarketplaceCatalog, replaceManagementWorkspace, replaceStaffWorkspace, replaceDeliveryLandmarks, replaceCustomerAccount, sendProduct, deleteProductMutation, saveCategoryMutation, savePromotionMutation, saveStoreSettingsMutation, createPlatformStoreMutation, setPlatformStoreEnabledMutation, updateOrderStatusMutation, setOrderItemPreparedMutation, assignDriverMutation, assignPreparationStaffMutation, paymentStatusMutation, routeSequenceMutation, toggleFavouriteMutation, setPreferenceMutation, updateProfileMutation, saveAddressMutation, removeAddressMutation, savePlaceMutation, removePlaceMutation, reportFailure]);
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;
 }
@@ -776,4 +827,11 @@ export const PAYMENT_LABEL = {
   card: "Card",
 } as const;
 
+export const PAYMENT_STATUS_LABEL: Record<Payment["status"], string> = {
+  pending: "Awaiting payment confirmation",
+  paid: "Paid",
+  unpaid: "Due at delivery",
+};
+
 export const MOBILE_MONEY_PROVIDERS = ["EcoCash", "M-Pesa", "Other mobile money"];
+

@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowLeft, Heart } from "lucide-react";
+import { ArrowLeft, Heart, LoaderCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -18,7 +18,10 @@ export const Route = createFileRoute("/_store/products/$slug")({
   validateSearch: (search) => z.object({ store: z.string().optional() }).parse(search),
   loader: ({ params }) => {
     const p = seedProducts.find((x) => x.slug === params.slug);
-    return { name: p?.name ?? "Product", description: p?.description ?? "Product details from local stores." };
+    return {
+      name: p?.name ?? "Product",
+      description: p?.description ?? "Product details from local stores.",
+    };
   },
   head: ({ loaderData }) => {
     const title = loaderData ? `${loaderData.name} — REETAPELE` : "Product — REETAPELE";
@@ -40,42 +43,81 @@ function ProductPage() {
   const search = Route.useSearch();
   const { products, stores, addToCart, favourites, toggleFavourite } = useAppStore();
   const selectedStore = stores.find((store) => store.slug === search.store);
-  const product = products.find((p) => p.slug === slug && (!selectedStore || p.storeId === selectedStore.id));
+  const product = products.find(
+    (p) => p.slug === slug && (!selectedStore || p.storeId === selectedStore.id),
+  );
   const [qty, setQty] = useState(1);
+  const [favouritePending, setFavouritePending] = useState(false);
 
-  if (!product) return <p>Product not found.</p>;
+  if (!product)
+    return (
+      <div className="mx-auto max-w-md py-12 text-center">
+        <h1 className="text-2xl font-bold">Product not found</h1>
+        <p className="mt-2 text-muted-foreground">
+          It may have been removed or is not available from this store.
+        </p>
+        <Button asChild className="mt-5 min-h-11 rounded-full">
+          <Link to="/shop" search={{ store: selectedStore?.slug }}>
+            Browse products
+          </Link>
+        </Button>
+      </div>
+    );
   const status = stockStatus(product);
   const price = effectivePrice(product);
   const fav = favourites.includes(product.id);
   const related = products
-    .filter((p) => p.storeId === product.storeId && p.categoryId === product.categoryId && p.id !== product.id)
+    .filter(
+      (p) =>
+        p.storeId === product.storeId && p.categoryId === product.categoryId && p.id !== product.id,
+    )
     .slice(0, 4);
 
   return (
     <div className="space-y-8">
-      <Link to="/shop" search={{ store: selectedStore?.slug }} className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+      <Link
+        to="/shop"
+        search={{ store: selectedStore?.slug }}
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground"
+      >
         <ArrowLeft className="size-4" /> Back to shop
       </Link>
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2 md:gap-6">
         <ProductTile emoji={product.emoji} name={product.name} size="lg" className="rounded-3xl" />
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-3">
-            <h1 className="text-3xl font-extrabold tracking-tight">{product.name}</h1>
+            <h1 className="min-w-0 break-words text-3xl font-extrabold tracking-tight">
+              {product.name}
+            </h1>
             <Button
               variant="outline"
               size="icon"
-              className="rounded-full"
-              aria-label="Save to favourites"
-              onClick={() => toggleFavourite(product.id)}
+              className="size-11 shrink-0 rounded-full"
+              aria-label={fav ? "Remove from favourites" : "Save to favourites"}
+              aria-busy={favouritePending}
+              disabled={favouritePending}
+              onClick={() => {
+                setFavouritePending(true);
+                void toggleFavourite(product.id).finally(() => setFavouritePending(false));
+              }}
             >
-              <Heart className={cn("size-5", fav && "fill-destructive text-destructive")} />
+              {favouritePending ? (
+                <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
+              ) : (
+                <Heart
+                  className={cn("size-5", fav && "fill-destructive text-destructive")}
+                  aria-hidden="true"
+                />
+              )}
             </Button>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold text-primary">{formatMShort(price)}</span>
             <span className="text-muted-foreground">{unitLabel(product.unit)}</span>
             {product.promoPrice ? (
-              <span className="text-muted-foreground line-through">{formatMShort(product.price)}</span>
+              <span className="text-muted-foreground line-through">
+                {formatMShort(product.price)}
+              </span>
             ) : null}
           </div>
           <StockBadge status={status} />
@@ -92,8 +134,10 @@ function ProductPage() {
                     type="button"
                     onClick={() => setQty(w)}
                     className={cn(
-                      "rounded-full border px-4 py-2 text-sm font-semibold",
-                      qty === w ? "border-primary bg-primary-soft text-primary" : "border-border bg-card",
+                      "min-h-11 rounded-full border px-4 py-2 text-sm font-semibold",
+                      qty === w
+                        ? "border-primary bg-primary-soft text-primary"
+                        : "border-border bg-card",
                     )}
                   >
                     {w} kg
@@ -106,6 +150,7 @@ function ProductPage() {
           <div className="flex items-center gap-3">
             <QuantityStepper
               value={qty}
+              itemName={product.name}
               step={product.soldByWeight ? 0.5 : 1}
               min={product.soldByWeight ? 0.5 : 1}
               suffix={product.soldByWeight ? "kg" : undefined}
@@ -113,7 +158,7 @@ function ProductPage() {
             />
             <Button
               size="lg"
-              className="h-12 flex-1 rounded-full"
+              className="min-h-12 flex-1 rounded-full"
               disabled={status === "out_of_stock"}
               onClick={() => {
                 addToCart(product, qty);

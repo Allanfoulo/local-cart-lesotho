@@ -1,6 +1,8 @@
 # Role Demo Dashboards Design
 
-**Status:** Implemented as a browser-local demo.
+**Status:** Historical demo baseline; superseded for current product behavior by the [marketplace auth and membership design](2026-10-10-marketplace-auth-membership-events-design.md) and the [mobile-first app design](2026-10-15-mobile-first-marketplace-app-design.md).
+
+The role directory remains demo/presentation tooling. Current routes use Convex-backed membership guards and Convex-backed operational state; browser-local demo identity and order state described below are not authoritative.
 
 ## Purpose
 

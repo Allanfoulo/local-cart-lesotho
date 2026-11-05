@@ -4,7 +4,7 @@
 
 Give every REETAPELE user a clear, role-appropriate workspace, with Convex as the authority for identity-linked access, marketplace data, and operational updates. Preserve guest checkout and multi-store checkout.
 
-## Current context
+## Starting context (2026-10-10)
 
 - Convex Auth email/password authentication and Resend verification are configured for the initial super admin, and the initial super-admin membership is active.
 - `memberships` currently supports only the platform `superadmin` role.
@@ -12,6 +12,10 @@ Give every REETAPELE user a clear, role-appropriate workspace, with Convex as th
 - Customer account, admin, store staff, dispatch, and driver workflows still read and write browser-local `AppStore` state.
 - Staff and driver routes are not yet protected by backend authorization. Convex records `OrderPlaced`, but not subsequent order or membership changes.
 - The marketplace supports multiple stores in one checkout, with a separate order created for each store.
+
+## Implementation status update (2026-10-15)
+
+Since the starting context above, the project has implemented store-scoped memberships and invitation flows, Convex-backed account and operational reads/writes, protected owner/staff/driver routes, post-sign-in workspace routing, multi-store checkout, and atomic operational events. Commit `2358bd9` adds the initial account/staff choice for multi-membership users and a staging E2E harness. This remains partial: persistent workspace switching, explicit cache transition handling, receipt recovery after refresh, and the full authorization-denial matrix are still open. See the [route and responsive baseline](../marketplace-route-baseline.md) and the [mobile-first implementation plan](../plans/2026-10-15-mobile-first-marketplace-implementation-plan.md) for current gaps and sequencing.
 
 ## Domain concepts
 
