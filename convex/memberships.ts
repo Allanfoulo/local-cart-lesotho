@@ -73,6 +73,7 @@ export const currentAccess = query({
           ),
         ).then((rows) => rows.filter(Boolean));
     return {
+      userId: String(userId),
       user: user ? { email: user.email ?? null, name: user.name ?? null } : null,
       isSuperadmin,
       memberships: memberships.map(({ _id, role, status, storeId }) => ({
@@ -215,3 +216,4 @@ export const setMembershipStatus = mutation({
     return null;
   },
 });
+

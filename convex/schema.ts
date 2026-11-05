@@ -215,6 +215,7 @@ export default defineSchema({
         quantity: v.number(),
         lineTotal: v.number(),
         soldByWeight: v.boolean(),
+        prepared: v.optional(v.boolean()),
       }),
     ),
     destination: v.object({

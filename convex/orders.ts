@@ -543,6 +543,9 @@ export const updateStatus = mutation({
     if (order.status === status) return null;
     const role: OrderWorkflowRole = membership.role === "superadmin" ? "store_manager" : membership.role as OrderWorkflowRole;
     if (!canTransitionOrder(role, order.status, status)) throw new ConvexError("That order status change is not allowed for your role.");
+    if (status === "ready" && order.items.some((item) => item.prepared !== true)) {
+      throw new ConvexError("Check off every order item before marking it ready.");
+    }
     if (status === "out_for_delivery" && !order.driverUserId) throw new ConvexError("Assign a driver before dispatching this order.");
     const occurredAt = Date.now();
     await ctx.db.patch(orderId, { status });
@@ -558,6 +561,34 @@ export const updateStatus = mutation({
       eventType: "OrderStatusChanged", version: 1, aggregateType: "order", aggregateId: orderId,
       actorId: userId, storeId: order.storeId, occurredAt, data: { from: order.status, to: status },
     });
+    return null;
+  },
+});
+
+export const setItemPrepared = mutation({
+  args: {
+    orderId: v.id("orders"),
+    productId: v.id("products"),
+    prepared: v.boolean(),
+  },
+  handler: async (ctx, { orderId, productId, prepared }) => {
+    const order = await ctx.db.get(orderId);
+    if (!order) throw new ConvexError("Order not found.");
+    const { userId } = await requireStoreRole(ctx, order.storeId, ["store_owner", "store_manager", "order_staff"]);
+    if (order.status !== "preparing") throw new ConvexError("Start preparing this order before checking off items.");
+    const memberships = await getActiveMemberships(ctx, userId);
+    const isStoreManager = memberships.some((membership) =>
+      membership.role === "superadmin" ||
+      (membership.storeId === order.storeId && ["store_owner", "store_manager"].includes(membership.role)),
+    );
+    if (!isStoreManager && order.assignedStaffUserId !== userId) {
+      throw new ConvexError("This order is assigned to another staff member.");
+    }
+    const itemIndex = order.items.findIndex((item) => item.productId === productId);
+    if (itemIndex < 0) throw new ConvexError("That item is not part of this order.");
+    if (order.items[itemIndex].prepared === prepared) return null;
+    const items = order.items.map((item, index) => index === itemIndex ? { ...item, prepared } : item);
+    await ctx.db.patch(orderId, { items });
     return null;
   },
 });
