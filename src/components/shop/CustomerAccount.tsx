@@ -6,6 +6,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { mapConvexOrder } from "@/features/orders/convex-mapper";
 import { CustomerDeliveryTracking } from "@/components/shop/CustomerDeliveryTracking";
+import { CustomerDeliveryConfirmation } from "@/components/shop/CustomerDeliveryConfirmation";
 import {
   Heart,
   MapPin,
@@ -173,7 +174,7 @@ export function CustomerAccount({ initialSection = "profile" }: { initialSection
                   />
                 </label>
                 <Button className="min-h-11 w-full sm:w-auto" disabled={savingProfile}>
-                  {savingProfile ? "Saving…" : "Save details"}
+                  {savingProfile ? "Savingâ€¦" : "Save details"}
                 </Button>
               </form>
               <p className="mt-5 text-xs text-muted-foreground">
@@ -208,7 +209,7 @@ export function CustomerAccount({ initialSection = "profile" }: { initialSection
                         <div>
                           <h3 className="font-semibold">{order.number}</h3>
                           <p className="text-sm text-muted-foreground">
-                            {formatDate(order.createdAt)} · {order.address.area}
+                            {formatDate(order.createdAt)} Â· {order.address.area}
                           </p>
                         </div>
                         <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-primary">
@@ -216,12 +217,13 @@ export function CustomerAccount({ initialSection = "profile" }: { initialSection
                         </span>
                       </div>
                       <CustomerDeliveryTracking orderId={order.id} orderStatus={order.status} />
+                      <CustomerDeliveryConfirmation orderId={order.id} orderStatus={order.status} />
                       <p className="mt-4 break-words text-sm">
-                        {order.items.map((i) => `${i.quantity} × ${i.name}`).join(" · ")}
+                        {order.items.map((i) => `${i.quantity} Ã— ${i.name}`).join(" Â· ")}
                       </p>
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
                         <span className="text-sm text-muted-foreground">
-                          {PAYMENT_LABEL[order.payment.method]} ·{" "}
+                          {PAYMENT_LABEL[order.payment.method]} Â·{" "}
                           {PAYMENT_STATUS_LABEL[order.payment.status]}
                         </span>
                         <strong>{formatM(order.total)}</strong>
@@ -526,7 +528,7 @@ function AddressBook() {
           onChange={(e) => setEditing({ ...editing, instructions: e.target.value })}
         />
         <Button className="min-h-11 sm:col-span-2" disabled={saving}>
-          {saving ? "Saving…" : "Save address"}
+          {saving ? "Savingâ€¦" : "Save address"}
         </Button>
       </form>
     </section>

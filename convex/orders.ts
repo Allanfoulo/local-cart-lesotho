@@ -13,6 +13,11 @@ const paymentMethod = v.union(
   v.literal("card"),
 );
 
+function generateDeliveryConfirmationCode() {
+  const value = crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000;
+  return value.toString().padStart(6, "0");
+}
+
 export const placeGuestOrder = mutation({
   args: {
     checkoutId: v.string(),
@@ -540,6 +545,7 @@ export const updateStatus = mutation({
     const driver = membership.role === "driver";
     if (driver && order.driverUserId !== userId) throw new ConvexError("This delivery is assigned to another driver.");
     if (membership.role === "order_staff" && order.assignedStaffUserId !== userId) throw new ConvexError("This order is assigned to another staff member.");
+    if (status === "delivered") throw new ConvexError("Enter the customer's delivery code to complete this order.");
     if (order.status === status) return null;
     const role: OrderWorkflowRole = membership.role === "superadmin" ? "store_manager" : membership.role as OrderWorkflowRole;
     if (!canTransitionOrder(role, order.status, status)) throw new ConvexError("That order status change is not allowed for your role.");
@@ -548,7 +554,30 @@ export const updateStatus = mutation({
     }
     if (status === "out_for_delivery" && !order.driverUserId) throw new ConvexError("Assign a driver before dispatching this order.");
     const occurredAt = Date.now();
+    if (status === "out_for_delivery") {
+      const customer = await ctx.db.get(order.customerId);
+      const customerUserId = order.customerUserId ?? customer?.userId;
+      if (!customerUserId) throw new ConvexError("This order is not linked to a customer account for delivery confirmation.");
+      const existingCode = await ctx.db.query("deliveryConfirmationCodes")
+        .withIndex("by_order", (q) => q.eq("orderId", orderId))
+        .unique();
+      const codeFields = {
+        orderId,
+        customerUserId,
+        code: generateDeliveryConfirmationCode(),
+        failedAttempts: 0,
+        replacementAvailableAt: occurredAt,
+      };
+      if (existingCode) await ctx.db.patch(existingCode._id, { ...codeFields, usedAt: undefined });
+      else await ctx.db.insert("deliveryConfirmationCodes", codeFields);
+    }
     await ctx.db.patch(orderId, { status });
+    if (status === "cancelled") {
+      const code = await ctx.db.query("deliveryConfirmationCodes")
+        .withIndex("by_order", (q) => q.eq("orderId", orderId))
+        .unique();
+      if (code && code.usedAt === undefined) await ctx.db.patch(code._id, { code: "", usedAt: occurredAt });
+    }
     if (status !== "out_for_delivery") {
       const tracking = await ctx.db
         .query("deliveryTracking")
@@ -562,6 +591,115 @@ export const updateStatus = mutation({
       actorId: userId, storeId: order.storeId, occurredAt, data: { from: order.status, to: status },
     });
     return null;
+  },
+});
+
+export const deliveryConfirmationCode = query({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, { orderId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const order = await ctx.db.get(orderId);
+    if (!order || order.status !== "out_for_delivery") return null;
+    const customer = await ctx.db.get(order.customerId);
+    if (order.customerUserId !== userId && customer?.userId !== userId) return null;
+    const record = await ctx.db.query("deliveryConfirmationCodes")
+      .withIndex("by_order", (q) => q.eq("orderId", orderId))
+      .unique();
+    if (!record || record.customerUserId !== userId || record.usedAt !== undefined) return null;
+    return {
+      code: record.code,
+      replacementAvailableAt: record.replacementAvailableAt,
+      failedAttempts: record.failedAttempts,
+    };
+  },
+});
+
+export const replaceDeliveryConfirmationCode = mutation({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, { orderId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Sign in to view your delivery code.");
+    const order = await ctx.db.get(orderId);
+    if (!order || order.status !== "out_for_delivery") throw new ConvexError("A code is available only while this order is out for delivery.");
+    const customer = await ctx.db.get(order.customerId);
+    if (order.customerUserId !== userId && customer?.userId !== userId) throw new ConvexError("You cannot change the code for this order.");
+    const now = Date.now();
+    const existingCode = await ctx.db.query("deliveryConfirmationCodes")
+      .withIndex("by_order", (q) => q.eq("orderId", orderId))
+      .unique();
+    if (existingCode && existingCode.customerUserId !== userId) throw new ConvexError("You cannot change the code for this order.");
+    if (existingCode?.usedAt !== undefined) throw new ConvexError("This delivery code has already been used.");
+    if (existingCode && now < existingCode.replacementAvailableAt) {
+      return { success: false as const, retryAfterMs: existingCode.replacementAvailableAt - now };
+    }
+    const replacementAvailableAt = now + 60_000;
+    const fields = {
+      orderId,
+      customerUserId: userId,
+      code: generateDeliveryConfirmationCode(),
+      failedAttempts: 0,
+      replacementAvailableAt,
+    };
+    if (existingCode) await ctx.db.patch(existingCode._id, { ...fields, usedAt: undefined });
+    else await ctx.db.insert("deliveryConfirmationCodes", fields);
+    return { success: true as const, replacementAvailableAt };
+  },
+});
+
+export const confirmDelivery = mutation({
+  args: { orderId: v.id("orders"), code: v.string() },
+  handler: async (ctx, { orderId, code }) => {
+    const order = await ctx.db.get(orderId);
+    if (!order) throw new ConvexError("Order not found.");
+    const { userId, membership } = await requireStoreRole(ctx, order.storeId, ["driver"]);
+    if (membership.role !== "driver" || order.driverUserId !== userId) {
+      throw new ConvexError("Only the assigned driver can confirm this delivery.");
+    }
+    if (order.status !== "out_for_delivery") throw new ConvexError("This order is not currently out for delivery.");
+    const record = await ctx.db.query("deliveryConfirmationCodes")
+      .withIndex("by_order", (q) => q.eq("orderId", orderId))
+      .unique();
+    if (!record || record.usedAt !== undefined) return { success: false as const, reason: "code_unavailable" as const };
+    if (record.failedAttempts >= 5) return { success: false as const, reason: "locked" as const };
+    if (!/^\d{6}$/.test(code) || code !== record.code) {
+      const failedAttempts = record.failedAttempts + 1;
+      await ctx.db.patch(record._id, { failedAttempts });
+      return {
+        success: false as const,
+        reason: failedAttempts >= 5 ? "locked" as const : "incorrect" as const,
+        attemptsRemaining: Math.max(0, 5 - failedAttempts),
+      };
+    }
+
+    const occurredAt = Date.now();
+    await ctx.db.patch(record._id, { code: "", usedAt: occurredAt });
+    await ctx.db.patch(orderId, { status: "delivered" });
+    const tracking = await ctx.db.query("deliveryTracking")
+      .withIndex("by_order", (q) => q.eq("orderId", orderId))
+      .unique();
+    if (tracking) await ctx.db.delete(tracking._id);
+    await ctx.db.insert("orderEvents", {
+      orderId,
+      orderNumber: order.orderNumber,
+      eventType: "OrderStatusChanged",
+      version: 1,
+      actorId: userId,
+      status: "delivered",
+      total: order.total,
+      occurredAt,
+    });
+    await ctx.db.insert("domainEvents", {
+      eventType: "OrderStatusChanged",
+      version: 1,
+      aggregateType: "order",
+      aggregateId: orderId,
+      actorId: userId,
+      storeId: order.storeId,
+      occurredAt,
+      data: { from: "out_for_delivery", to: "delivered" },
+    });
+    return { success: true as const };
   },
 });
 

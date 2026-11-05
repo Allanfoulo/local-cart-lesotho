@@ -344,18 +344,19 @@ test("driver status changes require the assigned driver and append an event atom
     const dispatcherId = await user(ctx, "dispatch@example.test");
     const driverId = await user(ctx, "driver@example.test");
     const otherDriverId = await user(ctx, "other-driver@example.test");
+    const customerUserId = await user(ctx, "delivery-customer@example.test");
     const storeId = await store(ctx, "Store A");
-    const customerId = await ctx.db.insert("customers", { name: "Customer", phone: "+26650000003", normalizedPhone: "+26650000003", email: "private@example.test", orderCount: 1, lifetimeSpend: 15, lastOrderAt: Date.now() });
+    const customerId = await ctx.db.insert("customers", { userId: customerUserId, name: "Customer", phone: "+26650000003", normalizedPhone: "+26650000003", email: "private@example.test", orderCount: 1, lifetimeSpend: 15, lastOrderAt: Date.now() });
     await ctx.db.insert("memberships", { userId: dispatcherId, storeId, role: "dispatcher", status: "active", grantedAt: Date.now() });
     await ctx.db.insert("memberships", { userId: driverId, storeId, role: "driver", status: "active", grantedAt: Date.now() });
     await ctx.db.insert("memberships", { userId: otherDriverId, storeId, role: "driver", status: "active", grantedAt: Date.now() });
     const orderId = await ctx.db.insert("orders", {
       storeId, storeName: "Store A", orderNumber: "REE-TEST-1", checkoutId: "CHECKOUT-1", customerId,
-      customerUserId: undefined, driverUserId: driverId, driverName: "Driver", customer: { name: "Customer", phone: "+26650000003" }, items: [],
+      customerUserId, driverUserId: driverId, driverName: "Driver", customer: { name: "Customer", phone: "+26650000003" }, items: [],
       destination: { area: "Maseru", address: "Main street" }, payment: { method: "cash_on_delivery", status: "unpaid" },
       subtotal: 10, deliveryFee: 5, total: 15, status: "ready", createdAt: Date.now(), estimatedDeliveryAt: Date.now() + 1000,
     });
-    return { driverId, otherDriverId, orderId };
+    return { driverId, otherDriverId, customerUserId, orderId };
   });
   const driver = t.withIdentity(identity(fixture.driverId, "driver@example.test"));
   const otherDriver = t.withIdentity(identity(fixture.otherDriverId, "other-driver@example.test"));
@@ -367,7 +368,14 @@ test("driver status changes require the assigned driver and append an event atom
   await expect(otherDriver.mutation(api.orders.updateStatus, { orderId: fixture.orderId, status: "out_for_delivery" })).rejects.toThrow();
   await expect(driver.mutation(api.orders.updateStatus, { orderId: fixture.orderId, status: "delivered" })).rejects.toThrow();
   await driver.mutation(api.orders.updateStatus, { orderId: fixture.orderId, status: "out_for_delivery" });
-  await driver.mutation(api.orders.updateStatus, { orderId: fixture.orderId, status: "delivered" });
+  const customer = t.withIdentity(identity(fixture.customerUserId, "delivery-customer@example.test"));
+  const confirmation = await customer.query(api.orders.deliveryConfirmationCode, { orderId: fixture.orderId });
+  expect(confirmation?.code).toMatch(/^\d{6}$/);
+  expect(await driver.query(api.orders.deliveryConfirmationCode, { orderId: fixture.orderId })).toBeNull();
+  const wrongCode = confirmation?.code === "000000" ? "000001" : "000000";
+  await expect(driver.mutation(api.orders.confirmDelivery, { orderId: fixture.orderId, code: wrongCode })).resolves.toMatchObject({ success: false });
+  await driver.mutation(api.orders.confirmDelivery, { orderId: fixture.orderId, code: confirmation!.code });
+  await expect(driver.mutation(api.orders.confirmDelivery, { orderId: fixture.orderId, code: confirmation!.code })).rejects.toThrow();
   const persisted = await t.run(async (ctx) => ({
     order: await ctx.db.get(fixture.orderId),
     timeline: await ctx.db.query("orderEvents").withIndex("by_order", (q) => q.eq("orderId", fixture.orderId)).take(10),
@@ -679,7 +687,9 @@ test("multi-store staff handoff stays scoped and customers see both delivered ch
   await expect(driverA.mutation(api.orders.updateStatus, { orderId: fixture.orderBId, status: "out_for_delivery" })).rejects.toThrow();
   for (const [driver, orderId] of [[driverA, fixture.orderAId], [driverB, fixture.orderBId]] as const) {
     await driver.mutation(api.orders.updateStatus, { orderId, status: "out_for_delivery" });
-    await driver.mutation(api.orders.updateStatus, { orderId, status: "delivered" });
+    const code = await t.run(async (ctx) => (await ctx.db.query("deliveryConfirmationCodes")
+      .withIndex("by_order", (q) => q.eq("orderId", orderId)).unique())?.code);
+    await driver.mutation(api.orders.confirmDelivery, { orderId, code: code! });
   }
   const customer = t.withIdentity(identity(fixture.customerUserId, "customer@example.test"));
   const customerOrders = await customer.query(api.customers.myOrders, {});

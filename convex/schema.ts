@@ -291,6 +291,14 @@ export default defineSchema({
     routeAnchorLongitude: v.optional(v.number()),
     expiresAt: v.number(),
   }).index("by_order", ["orderId"]),
+  deliveryConfirmationCodes: defineTable({
+    orderId: v.id("orders"),
+    customerUserId: v.id("users"),
+    code: v.string(),
+    failedAttempts: v.number(),
+    replacementAvailableAt: v.number(),
+    usedAt: v.optional(v.number()),
+  }).index("by_order", ["orderId"]),
   deliveryLandmarks: defineTable({
     storeId: v.id("stores"),
     name: v.string(),

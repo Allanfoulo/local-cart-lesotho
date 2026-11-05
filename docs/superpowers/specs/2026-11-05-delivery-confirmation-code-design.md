@@ -1,6 +1,6 @@
 # Delivery Confirmation Code Design
 
-**Status:** Design approved; awaiting review of this written spec.
+**Status:** Approved and implemented on the feature branch.
 
 ## Goal
 

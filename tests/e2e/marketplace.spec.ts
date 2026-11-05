@@ -248,13 +248,15 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
     await currentStop.getByRole("button", { name: "Confirm delivery" }).click();
     const deliveryConfirmation = driverPage.getByRole("alertdialog");
     await expect(
-      deliveryConfirmation.getByRole("heading", { name: "Confirm this delivery?" }),
+      deliveryConfirmation.getByRole("heading", { name: "Enter the customerâ€™s delivery code" }),
     ).toBeVisible();
+    await page.goto("/orders");
+    const customerOrder = page.locator("article").filter({ hasText: orderNumber! });
+    const deliveryCode = await customerOrder.getByRole("region", { name: "Delivery confirmation code" }).locator("p.font-mono").innerText();
+    await deliveryConfirmation.getByLabel("Customer delivery confirmation code").fill(deliveryCode);
     await deliveryConfirmation.getByRole("button", { name: "Confirm delivered" }).click();
     await expect(driverPage.getByText(orderNumber!)).toHaveCount(0);
 
-    await page.goto("/orders");
-    const customerOrder = page.locator("article").filter({ hasText: orderNumber! });
     await expect(customerOrder).toBeVisible();
     await expect(customerOrder).toContainText(/delivered/i);
   } finally {
@@ -263,3 +265,4 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
 
   testInfo.annotations.push({ type: "order", description: orderNumber });
 });
+
