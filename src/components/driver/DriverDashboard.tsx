@@ -364,7 +364,7 @@ export function DriverDashboard() {
           <AlertDialogFooter>
             <AlertDialogCancel className="min-h-11" disabled={busyStopId !== null}>Keep stop active</AlertDialogCancel>
             <AlertDialogAction className="min-h-11" disabled={busyStopId !== null || deliveryCode.length !== 6} onClick={(event) => { event.preventDefault(); void confirmPendingDelivery(); }}>
-              {busyStopId && pendingDelivery ? "Checking codeâ€¦â€ : "Confirm delivered"}
+              {busyStopId && pendingDelivery ? "Checking code..." : "Confirm delivered"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
