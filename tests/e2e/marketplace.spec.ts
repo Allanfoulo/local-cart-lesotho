@@ -296,9 +296,15 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
     await expect(customerMap).toBeVisible();
     await expect(liveTracking.getByText("The map is unavailable right now.", { exact: true })).toHaveCount(0);
     const locationUpdated = liveTracking.locator("p[role='status']").first();
-    await expect(locationUpdated).toHaveText("Updated just now");
-    await driverPage.waitForTimeout(10_500);
+    const locationAgeSeconds = async () => {
+      const label = await locationUpdated.innerText();
+      const seconds = label.match(/Updated (\d+) seconds ago/);
+      const minutes = label.match(/Updated (\d+) minute/);
+      return seconds ? Number(seconds[1]) : minutes ? Number(minutes[1]) * 60 : 0;
+    };
+    await expect.poll(locationAgeSeconds, { timeout: 20_000 }).toBeGreaterThanOrEqual(10);
     await driverPage.bringToFront();
+    await driverPage.waitForTimeout(250);
     await driverContext.setGeolocation({ latitude: -29.3095, longitude: 27.4912 });
     await expect(locationUpdated, "The customer view should receive the driver's next simulated GPS position").toHaveText("Updated just now");
     await expect(customerMap).toBeVisible();
