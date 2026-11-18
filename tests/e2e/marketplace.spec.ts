@@ -304,7 +304,7 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
     };
     await expect.poll(locationAgeSeconds, { timeout: 20_000 }).toBeGreaterThanOrEqual(10);
     await driverPage.bringToFront();
-    await driverPage.waitForTimeout(250);
+    await driverPage.waitForTimeout(10_500);
     await driverContext.setGeolocation({ latitude: -29.3095, longitude: 27.4912 });
     await expect(locationUpdated, "The customer view should receive the driver's next simulated GPS position").toHaveText("Updated just now");
     await expect(customerMap).toBeVisible();
