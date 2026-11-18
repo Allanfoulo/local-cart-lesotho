@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAppStore } from "@/lib/app-store";
@@ -8,6 +8,8 @@ import type { Category, DeliveryLandmark, Product, Promotion, Shop } from "@/lib
 export function ConvexWorkspaceSync() {
   const access = useQuery(api.memberships.currentAccess, {});
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const lastIdentity = useRef<string | null>(null);
+  const identity = isAuthenticated ? access?.user?.email?.trim().toLowerCase() ?? null : null;
   const customerAccount = useQuery(api.customers.account, isAuthenticated ? {} : "skip");
   const canManageCatalog = Boolean(access?.isSuperadmin || access?.memberships.some((item) => ["store_owner", "store_manager", "catalogue_staff"].includes(item.role)));
   const canManageOrders = Boolean(access?.isSuperadmin || access?.memberships.some((item) => ["store_owner", "store_manager", "dispatcher", "order_staff"].includes(item.role)));
@@ -21,7 +23,15 @@ export function ConvexWorkspaceSync() {
     replaceStaffWorkspace,
     replaceDeliveryLandmarks,
     replaceCustomerAccount,
+    resetIdentityBoundState,
   } = useAppStore();
+
+  useEffect(() => {
+    if (authLoading || (isAuthenticated && access === undefined)) return;
+    if (lastIdentity.current === identity) return;
+    if (lastIdentity.current !== null || identity !== null) resetIdentityBoundState();
+    lastIdentity.current = identity;
+  }, [access, authLoading, identity, isAuthenticated, resetIdentityBoundState]);
 
   useEffect(() => {
     if (!catalog) return;
@@ -60,7 +70,7 @@ export function ConvexWorkspaceSync() {
       replaceStaffWorkspace({
         orders: staffWorkspace.orders.map((order) => mapConvexOrder(order, order.timeline)),
         customers: staffWorkspace.customers.flatMap((customer) => customer ? [mapConvexCustomer(customer)] : []),
-        drivers: staffWorkspace.drivers.map((driver) => ({ id: String(driver.userId), name: driver.name, storeIds: driver.storeIds.map(String) })),
+        drivers: staffWorkspace.drivers.map((driver) => ({ id: String(driver.userId), name: driver.name, email: driver.email, storeIds: driver.storeIds.map(String) })),
         preparationStaff: staffWorkspace.preparationStaff.map((staff) => ({ id: String(staff.userId), name: staff.name, storeIds: staff.storeIds.map(String) })),
         deliveryRouteSequence: Object.fromEntries((staffWorkspace.routeSequences ?? []).map((sequence) => [
           `${String(sequence.storeId)}::${String(sequence.driverUserId)}`, sequence.orderIds.map(String),

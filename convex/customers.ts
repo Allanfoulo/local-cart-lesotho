@@ -83,7 +83,13 @@ export const updateProfile = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique();
     if (existingPhone && existingPhone._id !== profile?._id) {
-      throw new ConvexError("This phone number is already linked to another customer record.");
+      if (existingPhone.userId) {
+        throw new ConvexError("This phone number is already linked to another customer account.");
+      }
+      // A guest checkout may have created an unowned customer record for this
+      // phone. Keep its order history separate when the signed-in user saves
+      // the number to their own profile.
+      await ctx.db.patch(existingPhone._id, { normalizedPhone: `guest:${String(existingPhone._id)}` });
     }
     const user = await ctx.db.get(userId);
     const email = user?.email ?? undefined;

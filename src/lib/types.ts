@@ -132,6 +132,7 @@ export interface OrderEvent {
 
 export interface OrderItem extends CartItem {
   lineTotal: number;
+  prepared?: boolean;
 }
 
 export interface Order {
@@ -186,3 +187,4 @@ export interface NotificationPreference {
   description: string;
   enabled: boolean;
 }
+

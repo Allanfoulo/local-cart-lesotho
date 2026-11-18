@@ -21,7 +21,7 @@ The CLI uses the `CONVEX_DEPLOYMENT` value in `.env.local` to select the project
 
 The production Netlify site and Convex production deployment have separate configuration. Before a production launch:
 
-1. In Convex, select the **production deployment** and set `RESEND_API_KEY`, `AUTH_EMAIL_FROM`, `INITIAL_SUPERADMIN_EMAIL`, and `SITE_URL`. Use the production site URL for `SITE_URL` (the intended site is `https://allanfdeveloper.space`). Keep the production Resend key and verified sender configured on this Convex deployment.
+1. The dedicated REETAPELE marketplace domain has not been purchased yet. After the production site and domain are selected, set `SITE_URL` to that app's origin. Do not use `https://allanfdeveloper.space` as `SITE_URL`; it is Allan's personal portfolio and is only the current verified Resend sender domain. Configure a production-specific `RESEND_API_KEY`, the verified `AUTH_EMAIL_FROM`, and `INITIAL_SUPERADMIN_EMAIL` on the production deployment, keeping the production Resend key separate from development.
 2. In Netlify, set `VITE_CONVEX_URL` to the production deployment’s `https://…convex.cloud` URL, with **Builds** scope in the Production context. It is a frontend build value, so setting it only in your local environment does not configure Netlify.
 3. Keep the Netlify build command `pnpm build` and publish directory `dist/client`; `netlify.toml` already contains these values.
 4. Verify signup, OTP delivery, password reset, invitation links, and sign-in from the production domain.

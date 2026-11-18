@@ -28,9 +28,15 @@ export const Route = createFileRoute("/_store/shop")({
   head: () => ({
     meta: [
       { title: "Shop all groceries — REETAPELE" },
-      { name: "description", content: "Browse fresh produce, groceries, drinks, snacks and household items." },
+      {
+        name: "description",
+        content: "Browse fresh produce, groceries, drinks, snacks and household items.",
+      },
       { property: "og:title", content: "Shop all groceries — REETAPELE" },
-      { property: "og:description", content: "Browse every product at REETAPELE with live prices and stock." },
+      {
+        property: "og:description",
+        content: "Browse every product at REETAPELE with live prices and stock.",
+      },
     ],
   }),
   component: ShopPage,
@@ -41,10 +47,16 @@ function ShopPage() {
   const navigate = useNavigate({ from: "/shop" });
   const { categories, products, stores } = useAppStore();
   const activeStore = stores.find((store) => store.slug === search.store);
-  const scopedCategories = categories.filter((category) => !activeStore || category.storeId === activeStore.id);
-  const scopedProducts = products.filter((product) => !activeStore || product.storeId === activeStore.id);
+  const scopedCategories = categories.filter(
+    (category) => !activeStore || category.storeId === activeStore.id,
+  );
+  const scopedProducts = products.filter(
+    (product) => !activeStore || product.storeId === activeStore.id,
+  );
   const active = scopedCategories.find((c) => c.slug === search.category);
-  const categoryIds = scopedCategories.filter((category) => category.slug === search.category).map((category) => category.id);
+  const categoryIds = scopedCategories
+    .filter((category) => category.slug === search.category)
+    .map((category) => category.id);
   const list = filterProducts(
     active?.slug === "specials" ? scopedProducts.filter((p) => p.promoPrice) : scopedProducts,
     {
@@ -60,34 +72,48 @@ function ShopPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-extrabold tracking-tight">
-          {activeStore ? `${activeStore.name}${active ? ` · ${active.name}` : ""}` : active ? active.name : "All products"}
+      <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+        <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">
+          {activeStore
+            ? `${activeStore.name}${active ? ` · ${active.name}` : ""}`
+            : active
+              ? active.name
+              : "All products"}
         </h1>
         <Select
           value={activeStore?.slug ?? "all"}
-          onValueChange={(value) => set({ store: value === "all" ? undefined : value, category: undefined })}
+          onValueChange={(value) =>
+            set({ store: value === "all" ? undefined : value, category: undefined })
+          }
         >
-          <SelectTrigger className="h-9 w-52 rounded-full bg-card">
+          <SelectTrigger className="h-11 w-full rounded-full bg-card sm:w-52">
             <SelectValue placeholder="All stores" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All stores</SelectItem>
-            {stores.map((store) => <SelectItem key={store.id} value={store.slug}>{store.name}</SelectItem>)}
+            {stores.map((store) => (
+              <SelectItem key={store.id} value={store.slug}>
+                {store.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
+          type="search"
+          aria-label="Search products"
           value={search.q ?? ""}
           onChange={(e) => set({ q: e.target.value || undefined })}
           placeholder="Search products"
-          className="h-11 rounded-full bg-card pl-9"
+          className="min-h-11 rounded-full bg-card pl-9"
         />
       </div>
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
-        <Chip active={!active} to={undefined}>All</Chip>
+        <Chip active={!active} to={undefined}>
+          All
+        </Chip>
         {scopedCategories
           .filter((c) => c.enabled)
           .sort((a, b) => a.order - b.order)
@@ -98,12 +124,15 @@ function ShopPage() {
           ))}
       </div>
       <div className="flex items-center justify-between gap-3">
-        <label className="flex items-center gap-2 text-sm">
-          <Switch checked={!!search.instock} onCheckedChange={(v) => set({ instock: v || undefined })} />
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <Switch
+            checked={!!search.instock}
+            onCheckedChange={(v) => set({ instock: v || undefined })}
+          />
           In stock only
         </label>
         <Select value={search.sort ?? "popular"} onValueChange={(v) => set({ sort: v as never })}>
-          <SelectTrigger className="h-9 w-40 rounded-full bg-card">
+          <SelectTrigger className="h-11 w-40 rounded-full bg-card">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -114,7 +143,9 @@ function ShopPage() {
           </SelectContent>
         </Select>
       </div>
-      <p className="text-sm text-muted-foreground">{list.length} products</p>
+      <p className="text-sm text-muted-foreground">
+        {list.length} {list.length === 1 ? "product" : "products"}
+      </p>
       {list.length ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {list.map((p) => (
@@ -122,23 +153,64 @@ function ShopPage() {
           ))}
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-border p-10 text-center">
-          <p className="text-4xl">🔍</p>
-          <p className="mt-2 font-semibold">No products found</p>
-          <p className="text-sm text-muted-foreground">Try another search or category.</p>
-        </div>
+        <section
+          className="rounded-2xl border border-dashed border-border bg-card p-8 text-center sm:p-10"
+          aria-live="polite"
+        >
+          <p className="text-4xl" aria-hidden="true">
+            {scopedProducts.length ? "🔍" : "🧺"}
+          </p>
+          <h2 className="mt-2 font-semibold">
+            {scopedProducts.length
+              ? "No products match those filters"
+              : activeStore
+                ? `${activeStore.name} is preparing its catalogue`
+                : "Stores are preparing their catalogues"}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {scopedProducts.length
+              ? "Try a different search, category, or stock filter."
+              : "Check back soon, or browse other stores in the marketplace."}
+          </p>
+          {scopedProducts.length ? (
+            <button
+              type="button"
+              onClick={() => navigate({ search: { sort: search.sort }, replace: true })}
+              className="mt-4 inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground"
+            >
+              Clear filters
+            </button>
+          ) : activeStore ? (
+            <button
+              type="button"
+              onClick={() => set({ store: undefined, category: undefined, q: undefined })}
+              className="mt-4 inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground"
+            >
+              Browse all stores
+            </button>
+          ) : null}
+        </section>
       )}
     </div>
   );
 }
 
-function Chip({ active, to, children }: { active: boolean; to?: string; children: React.ReactNode }) {
+function Chip({
+  active,
+  to,
+  children,
+}: {
+  active: boolean;
+  to?: string;
+  children: React.ReactNode;
+}) {
   return (
     <Link
       to="/shop"
       search={(prev) => ({ ...prev, category: to })}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium",
+        "flex min-h-11 shrink-0 items-center rounded-full border px-3.5 py-1.5 text-sm font-medium",
         active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card",
       )}
     >

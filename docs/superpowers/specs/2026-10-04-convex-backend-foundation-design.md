@@ -1,5 +1,7 @@
 # Convex backend foundation design
 
+> **Historical initial scope:** this document records the first Convex prototype, which allowed guest orders. The current policy supersedes that behavior: guests can browse and prepare checkout, but order placement requires an authenticated customer with a verified email.
+
 ## 1. Architecture goal
 
 Add Convex as the transactional backend for catalog reads and guest order placement while preserving the current local demo store until a deployment is configured. Keep business rules framework independent and make catalog/order operations the first migration slice.

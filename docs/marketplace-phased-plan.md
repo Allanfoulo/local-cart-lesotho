@@ -2,19 +2,22 @@
 
 This plan follows the approved marketplace authentication, membership, and events design. Convex remains authoritative for identity, tenancy, orders, and operational state. Delivery is development-first; no remote push or production deployment is included.
 
+> **2026-11-18 continuation:** Keep this plan as the record of the existing Convex tenancy, store setup, fulfillment, checkout and readiness work. The repository audit found substantial implementation already present, but the pilot acceptance gaps below remain. Do not replace the first-party REETAPELE store model. The detailed continuation is in [the feature audit](REETAPELE_FEATURE_AUDIT.md), [completion PRD](REETAPELE_COMPLETION_PRD.md), [implementation plan](REETAPELE_IMPLEMENTATION_PLAN.md), [pilot readiness checklist](REETAPELE_PILOT_READINESS.md), and [weekly baskets specification](REETAPELE_WEEKLY_BASKETS_SPEC.md).
+
 ## Phase 1 — Store tenancy and staff access
 
-**Status: complete in development**
+**Status: core implementation complete in development; marketplace acceptance gaps remain**
 
 - Enforce active, store-scoped roles for every privileged Convex query and mutation.
 - Keep the platform super admin separate from store memberships and prevent accidental platform lockout.
 - Let a store owner onboard managers; let owners and managers onboard order preparation staff, catalogue staff, dispatchers, and drivers.
+- After sign-in, resolve active store memberships before choosing a workspace: route a single-membership user directly to that workspace and offer the account/staff choice to users with multiple active memberships. Verify super admins never land in a customer workspace by default.
 - Make invitation acceptance single-use, email-verified, expiry-aware, and revocation-aware.
 - Protect invitation resend and revocation with the same role authority as invitation creation.
 - Cover anonymous, suspended, wrong-store, wrong-role, duplicate, revoked, expired, and self-lockout cases.
 - Keep staff access screens driven by authorized Convex membership queries.
 
-**Exit criteria:** no account can gain access by changing client input or reusing an old invitation; store members cannot read or change another store's staff or operations; an active super admin always remains available.
+**Exit criteria:** no account can gain access by changing client input or reusing an old invitation; sign-in lands in a workspace authorized by active memberships; store members cannot read or change another store's staff or operations; an active super admin always remains available.
 
 ## Phase 2 — Store onboarding and configuration
 
@@ -29,33 +32,40 @@ This plan follows the approved marketplace authentication, membership, and event
 
 ## Phase 3 — Order fulfillment workflows
 
-**Status: complete in development**
+**Status: core implementation complete in development; two-store and exception acceptance remains open**
 
 - Complete the customer order timeline from placement through store acceptance, preparation, ready, dispatch, delivery, rejection, and cancellation.
 - Define allowed transitions by staff role in backend-agnostic domain rules and enforce them in Convex mutations. Repeated status requests are idempotent; invalid or stale transitions fail without changing the order or event history.
-- Ensure each order belongs to exactly one store, while multi-store checkout creates linked store orders with consistent totals.
+- Ensure each fulfillment order belongs to exactly one store, while a multi-store basket creates linked store orders with server-calculated per-store item totals, fees, delivery estimates, payment states, and a consistent basket total.
+- Make linked store orders independently fulfillable: each store sees only its child order; a store-level cancellation or rejection does not cancel the other store's child order; a stock or availability change identifies the affected store and items and gives the customer a clear next action.
 - Give staff store-scoped queues and give drivers only their assigned deliveries and required delivery details. Driver projections omit customer account identifiers, email, and exact coordinates.
 - Let managers assign preparation work to named order staff, and show each person only the work assigned to them.
 - Record actor, time, and versioned domain events atomically with each committed status or assignment change; keep reactive screens consistent.
 - Handle retries and concurrent updates without duplicate orders or invalid transitions.
 
-**Exit criteria:** customer, manager, order staff, dispatcher, and driver see the same authoritative status and permitted actions.
+**Exit criteria:** a two-store basket produces correctly linked, store-scoped work with understandable per-store charges and estimates. A cancellation, rejection, or unavailable item in one child order leaves the other child order's status and fulfillment intact. Customer, store admin/owner, manager, order staff, dispatcher, and assigned driver see authoritative status and only their permitted actions; after delivery the customer can confirm the correct child order's delivered state. Unassigned drivers and staff from another store cannot access that work.
 
 ## Phase 4 — Checkout, payment, and customer communication
 
 - Verify addresses, delivery area eligibility, store hours, minimum order, stock, promotions, coupon rules, and per-store fees at checkout on the server.
+- At discovery and checkout, group items by store and show each store's availability, fees, and delivery estimate, plus the combined amount. Cover closed stores and stock changes between browsing and submission; preserve unaffected store items and explain whether the customer must retry or remove only the affected items.
+- Define and verify the partial-failure policy for linked store orders, including whether checkout creates all eligible child orders together or reports a retryable failure before any order is created. Never leave an ambiguous duplicate or silently charge for unavailable items.
 - Clarify payment states for cash on delivery and manual mobile money, including staff verification and customer-visible status.
-- Integrate a payment provider before enabling card payments; add signed webhook handling, idempotency, refunds, and failure recovery.
+- Treat payment-provider integration as a production release gate: before enabling provider-backed payments, confirm payment status server-side, verify signed callbacks, make callbacks and retries idempotent, recover from failed/pending payments, reconcile provider records against orders, and support and record refunds. Until then, development/staging may use cash and manual mobile money with explicit pending/verification states; do not display an unconfirmed payment as paid.
 - Send reliable customer updates for acceptance, changes, dispatch, delivery, and cancellation, with a support path for exceptions.
-- Preserve guest checkout and optional customer accounts with customer-owned order/address access.
+- Keep storefront browsing and basket building open to guests. Before submitting an order, require the customer to create an account with a password and verify the email address, or sign in to an existing account. Link each order to the authenticated customer so order history and saved addresses remain account-owned.
 
-**Exit criteria:** totals and payment state cannot be altered by the browser, and every payment path has a clear successful, failed, and pending outcome.
+**Exit criteria:** per-store and combined totals are server-authoritative; partial failures and retry behavior are unambiguous; each supported development payment method has clear successful, failed, and pending outcomes. Provider-backed production payment methods remain disabled until every payment release gate above passes.
 
 ## Phase 5 — Operational readiness and launch
 
 **Status: readiness review complete; launch blockers remain**
 
 - Complete authorization and workflow tests, including cross-store isolation and role escalation attempts.
+- Run the complete staging acceptance matrix on synthetic data: multi-store customer checkout and per-store summaries; independent child-order cancellation and unavailable-item recovery; owner/admin staff onboarding and invitation lifecycle; order staff preparation; manager exception handling; dispatcher assignment; assigned-driver delivery; and denials for other-store staff, wrong roles, and unassigned drivers.
+- Repeat customer, manager, and driver tasks at phone widths, including loading, empty, error, and recoverable network states. Record outcomes by role and viewport in the staging acceptance record.
+- Exercise customer and staff recovery paths for a closed store, stock exhaustion after browsing, uncertain checkout response, rejected/cancelled store order, and failed delivery. Each case must show the current authoritative status, a next action, and a support/escalation route; retries must not create duplicates.
+- Keep provider payments as a separate hard production gate. Staging acceptance of cash/manual mobile money does not satisfy provider confirmation, callback security/idempotency, reconciliation, failure recovery, or refund criteria.
 - Verify development and production Convex environment variables, auth email, domain, and site origins without exposing secrets.
 - Rotate any credentials exposed in prior verbose CLI output before using them again.
 - Confirm Netlify output, environment configuration, monitoring, backup/recovery, and support procedures.
@@ -63,4 +73,53 @@ This plan follows the approved marketplace authentication, membership, and event
 
 See [Phase 5 readiness findings](phase-5-readiness.md) for the development checks and outstanding production actions.
 
-**Exit criteria:** production settings are verified, critical failures are observable, and staff can complete the core marketplace journey without developer intervention.
+**Exit criteria:** the recorded staging matrix passes across stores, roles, recovery cases, and phone layouts; critical failures are observable and staff know the recovery/escalation path. Production payment methods remain limited to those whose payment gate has passed. Production environment and operational readiness must also pass before release.
+
+## Pilot completion and marketplace expansion sequence
+
+This continuation adds the product requirements from the REETAPELE feature audit without replacing Phases 1–5 above.
+
+### Stage A — Close pilot-critical gaps (P0)
+
+- Confirm the Ha-Matala pilot area (Phase I, Phase II, or both), real delivery policy, fees, hours and support process with the operator. The current seeded areas do not establish the pilot boundary.
+- Replace name-only area configuration with independently enabled/configurable service areas and enforce serviceability and operating policy on the server.
+- Verify checkout registration/email verification, server-side price and stock checks, duplicate submission behavior, manual payment verification and recovery paths on the latest preview.
+- Complete inventory correction history, order/assignment/payment event coverage, failed-delivery procedures and customer support/contact handling where the audit identified gaps.
+- Keep card processing disabled until a payment provider has confirmed status, secure/idempotent callbacks, failure recovery, reconciliation and refund support.
+
+**Exit criteria:** the current first-party store can take an eligible order through supportable, auditable delivery with a confirmed area and no duplicate, oversold or misrouted order.
+
+### Stage B — Complete bilingual customer experience (P0)
+
+- Add `en-LS` and `st-LS` resources and a persistent language switcher available before sign-in.
+- Translate the complete customer journey, dynamic statuses/errors, payment/delivery instructions and notifications; support localized product descriptions and fallback strings.
+- Have payment and delivery language reviewed by a fluent Sesotho speaker.
+
+**Exit criteria:** a Sesotho-speaking customer can finish the complete purchase and understand order changes and support options without needing English.
+
+### Stage C — Operational validation and pilot decision (P0 release gate)
+
+- Extend existing Convex and Playwright suites for current account gate, service zones, checkout retries, stock races, payment state, role isolation, fulfillment exceptions, delivery and localization.
+- Run synthetic-data phone/desktop acceptance, then controlled real-world end-to-end orders after the development matrix passes.
+- Verify production/deploy environment separation, monitoring, backup/recovery, support ownership, staff permissions and incident reporting.
+- Track fulfillment success, accuracy, on-time delivery when windows exist, preparation time, delivery cost, failures/cancellations, complaints and repeat orders. Agree thresholds from pilot evidence rather than assuming them.
+
+**Exit criteria:** the [pilot readiness checklist](REETAPELE_PILOT_READINESS.md) has evidence for each required gate and the operator signs off. Passing builds alone do not authorize unrestricted launch.
+
+### Stage D — Repeat weekly baskets (P1)
+
+- After the core pilot journey is stable, add persistent named baskets, create from a cart/order, edit quantities and weight options, preserve store association, and reprice/revalidate availability before adding to cart.
+- Do not silently substitute products or merchants. Automatic scheduled orders/payments remain out of scope until separate customer authorization and payment requirements are designed.
+
+**Exit criteria:** a returning customer reviews current Maloti prices and stock, resolves unavailable items, and checks out with fewer steps.
+
+### Stage E — Independent merchant marketplace (after first-party validation)
+
+- Keep REETAPELE as its own first-party store. Add merchant application/approval and a separate merchant identity and dashboard only after the pilot proves dependable operations.
+- Preserve store-scoped catalogues, orders, staff and customer-facing child-order statuses. Reuse existing multi-store checkout only after its customer and independent-fulfillment acceptance cases pass.
+- Design commissions, settlement, refund and reconciliation before any payout feature. Do not activate merchant payouts before business and compliance review.
+
+### Stage F — Convenience features (P2)
+
+- Add delivery windows only after hours, capacity, cutoffs, cancellations and rescheduling are operationally defined.
+- Add loyalty, referrals and repeat-purchase campaigns after normal fulfilment works consistently. Do not allow campaign work to delay pilot order reliability.

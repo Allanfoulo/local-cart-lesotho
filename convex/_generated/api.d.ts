@@ -10,9 +10,11 @@
 
 import type * as ResendOTP from "../ResendOTP.js";
 import type * as auth from "../auth.js";
+import type * as baskets from "../baskets.js";
 import type * as catalog from "../catalog.js";
 import type * as customers from "../customers.js";
 import type * as deliveryPlaces from "../deliveryPlaces.js";
+import type * as deliveryTracking from "../deliveryTracking.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
 import type * as lib_authorization from "../lib/authorization.js";
@@ -31,9 +33,11 @@ import type {
 declare const fullApi: ApiFromModules<{
   ResendOTP: typeof ResendOTP;
   auth: typeof auth;
+  baskets: typeof baskets;
   catalog: typeof catalog;
   customers: typeof customers;
   deliveryPlaces: typeof deliveryPlaces;
+  deliveryTracking: typeof deliveryTracking;
   http: typeof http;
   invitations: typeof invitations;
   "lib/authorization": typeof lib_authorization;

@@ -1,15 +1,17 @@
-import { useEffect } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAppStore } from "@/lib/app-store";
+import { marketplaceCatalogLoadingContext } from "@/lib/marketplace-catalog-context";
 import type { Category, Product, Promotion, Shop } from "@/lib/types";
 
-export function ConvexMarketplaceSync() {
+export function ConvexMarketplaceSync({ children }: { children: ReactNode }) {
   const catalog = useQuery(api.catalog.getMarketplaceCatalog, {});
   const { replaceMarketplaceCatalog } = useAppStore();
+  const [appliedCatalog, setAppliedCatalog] = useState<typeof catalog>();
 
   useEffect(() => {
-    if (!catalog) return;
+    if (catalog === undefined) return;
     const shops: Shop[] = catalog.stores.map((entry) => ({
       id: entry._id,
       slug: entry.slug,
@@ -84,7 +86,14 @@ export function ConvexMarketplaceSync() {
       active: promotion.active,
     }));
     replaceMarketplaceCatalog({ stores: shops, categories, products, promotions });
+    setAppliedCatalog(catalog);
   }, [catalog, replaceMarketplaceCatalog]);
 
-  return null;
+  return (
+    <marketplaceCatalogLoadingContext.Provider
+      value={catalog === undefined || appliedCatalog !== catalog}
+    >
+      {children}
+    </marketplaceCatalogLoadingContext.Provider>
+  );
 }

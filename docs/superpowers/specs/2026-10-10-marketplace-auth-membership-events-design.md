@@ -1,22 +1,28 @@
 # Marketplace Authentication, Membership, and Data Flow Design
 
+> **Current checkout policy (2026-10-23):** this design originally allowed anonymous order placement. The current product policy permits guest browsing and basket building, but requires a verified customer account or sign-in before order placement.
+
 ## Goal
 
-Give every REETAPELE user a clear, role-appropriate workspace, with Convex as the authority for identity-linked access, marketplace data, and operational updates. Preserve guest checkout and multi-store checkout.
+Give every REETAPELE user a clear, role-appropriate workspace, with Convex as the authority for identity-linked access, marketplace data, and operational updates. Preserve guest browsing and multi-store checkout while requiring customer authentication for order placement.
 
-## Current context
+## Starting context (2026-10-10)
 
 - Convex Auth email/password authentication and Resend verification are configured for the initial super admin, and the initial super-admin membership is active.
 - `memberships` currently supports only the platform `superadmin` role.
-- The marketplace catalogue reads from Convex, and guest checkout writes orders to Convex.
+- The marketplace catalogue reads from Convex, and authenticated customer checkout writes orders to Convex.
 - Customer account, admin, store staff, dispatch, and driver workflows still read and write browser-local `AppStore` state.
 - Staff and driver routes are not yet protected by backend authorization. Convex records `OrderPlaced`, but not subsequent order or membership changes.
 - The marketplace supports multiple stores in one checkout, with a separate order created for each store.
 
+## Implementation status update (2026-10-15)
+
+Since the starting context above, the project has implemented store-scoped memberships and invitation flows, Convex-backed account and operational reads/writes, protected owner/staff/driver routes, post-sign-in workspace routing, multi-store checkout, and atomic operational events. Commit `2358bd9` adds the initial account/staff choice for multi-membership users and a staging E2E harness. This remains partial: persistent workspace switching, explicit cache transition handling, receipt recovery after refresh, and the full authorization-denial matrix are still open. See the [route and responsive baseline](../marketplace-route-baseline.md) and the [mobile-first implementation plan](../plans/2026-10-15-mobile-first-marketplace-implementation-plan.md) for current gaps and sequencing.
+
 ## Domain concepts
 
 - **Authentication user:** Convex Auth identity and credentials. Credentials and verification codes never enter application membership data.
-- **Customer profile:** business contact details and order aggregates, optionally linked to an authenticated user. Guest orders remain supported.
+- **Customer profile:** business contact details and order aggregates linked to the authenticated customer placing the order. New anonymous orders are not supported.
 - **Membership:** authorization grant, independent from authentication identity. Platform membership is separate from store-scoped membership.
 - **Platform role:** `superadmin`.
 - **Store roles:** `store_owner`, `store_manager`, `order_staff`, `catalogue_staff`, `dispatcher`, and `driver`; each is scoped to exactly one store. `order_staff` can process order preparation through ready status but cannot assign drivers or change payment state.
@@ -26,7 +32,7 @@ Give every REETAPELE user a clear, role-appropriate workspace, with Convex as th
 
 ## Use cases
 
-- Customer signup, sign-in, email verification, password recovery, optional authenticated account, and guest checkout.
+- Customer signup, sign-in, email verification, password recovery, open guest browsing, and the required account gate before order placement.
 - One-time initial super-admin setup; subsequent admin management of users, store records, and platform access.
 - Store-owner and manager invitation and acceptance for store-scoped staff roles; suspension and revocation of memberships. Owners can invite managers; owners and managers can invite order, catalogue, dispatch, and driver staff.
 - Store-scoped catalogue, inventory, offer, and setting updates.
@@ -82,7 +88,7 @@ Use validated commands such as `acceptStaffInvite`, `updateProduct`, `transition
 2. Add authorization helpers for platform roles, store roles, ownership, and customer-owned data; make all checks fail closed.
 3. Add invitation lifecycle and customer authentication flows with role-appropriate enrollment policies.
 4. Add protected route/workspace composition driven by a reactive current-access query.
-5. Move catalogue, order operations, dispatch, driver, customer account, and order-history reads/writes from `AppStore` to authorized Convex queries and mutations. Preserve guest and multi-store checkout.
+5. Move catalogue, order operations, dispatch, driver, customer account, and order-history reads/writes from `AppStore` to authorized Convex queries and mutations. Preserve guest browsing and multi-store checkout; require an authenticated customer for order placement.
 6. Record events in the same mutation as each meaningful state transition; use reactive queries to update screens.
 7. Remove operational demo writes from local storage. Keep cart and non-sensitive display preferences local.
 
@@ -113,8 +119,8 @@ Keep the current Convex deployment as a modular application. Do not add an exter
 
 ## Acceptance criteria
 
-- Anonymous users can continue guest checkout across multiple stores.
-- Customers can optionally register and only see their own authenticated account data and eligible orders.
+- Anonymous users can browse and build a multi-store basket, but must verify a customer account or sign in before order placement.
+- Customers place orders through their authenticated account and only see their own account data and eligible orders.
 - Internal accounts are invitation-only, scoped to a store, and cannot grant or elevate their own roles.
 - The super admin remains platform-scoped; store roles never imply platform access.
 - All privileged routes and every sensitive Convex query/mutation enforce authorization on the server.

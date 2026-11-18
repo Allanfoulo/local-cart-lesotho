@@ -18,19 +18,19 @@ async function user(ctx: MutationCtx, email: string, verified = true) {
 async function store(ctx: MutationCtx, name: string) {
   return await ctx.db.insert("stores", {
     slug: name.toLowerCase().replaceAll(" ", "-"), name, tagline: "Local groceries",
-    phone: "+26622220000", whatsapp: "+26622220000", address: "Maseru", openingHours: "08:00–18:00",
+    phone: "+26622220000", whatsapp: "+26622220000", address: "Maseru", openingHours: "08:00â€“18:00",
     enabled: true, sortOrder: 1,
   });
 }
 
 async function seedProduct(ctx: MutationCtx, storeId: Id<"stores">, name: string, stock = 10) {
   const categoryId = await ctx.db.insert("categories", {
-    storeId, slug: "groceries", name: "Groceries", emoji: "🛒", accent: "green", enabled: true, sortOrder: 1,
+    storeId, slug: "groceries", name: "Groceries", emoji: "ðŸ›’", accent: "green", enabled: true, sortOrder: 1,
   });
   return await ctx.db.insert("products", {
     storeId, slug: name.toLowerCase().replaceAll(" ", "-"), name, description: name, categoryId,
     price: 10, unit: "each", soldByWeight: false, stock, lowStockThreshold: 2,
-    available: true, popularity: 0, emoji: "🛒",
+    available: true, popularity: 0, emoji: "ðŸ›’",
   });
 }
 
@@ -52,7 +52,7 @@ test("store management reads and writes are limited to active memberships in tha
     const ownerId = await user(ctx, "owner@example.test");
     const storeA = await store(ctx, "Store A");
     const storeB = await store(ctx, "Store B");
-    const categoryId = await ctx.db.insert("categories", { storeId: storeA, slug: "existing", name: "Existing", emoji: "🛒", accent: "green", enabled: true, sortOrder: 1 });
+    const categoryId = await ctx.db.insert("categories", { storeId: storeA, slug: "existing", name: "Existing", emoji: "ðŸ›’", accent: "green", enabled: true, sortOrder: 1 });
     const membershipId = await ctx.db.insert("memberships", { userId: ownerId, storeId: storeA, role: "store_owner", status: "active", grantedAt: Date.now() });
     return { ownerId, storeA, storeB, categoryId, membershipId };
   });
@@ -60,10 +60,10 @@ test("store management reads and writes are limited to active memberships in tha
 
   await expect(owner.query(api.memberships.listForStore, { storeId: fixture.storeB })).rejects.toThrow();
   await expect(owner.mutation(api.catalog.upsertCategory, {
-    storeId: fixture.storeB, slug: "wrong-store", name: "Wrong store", emoji: "🛒", accent: "green", enabled: true, sortOrder: 2,
+    storeId: fixture.storeB, slug: "wrong-store", name: "Wrong store", emoji: "ðŸ›’", accent: "green", enabled: true, sortOrder: 2,
   })).rejects.toThrow();
   await expect(owner.mutation(api.catalog.upsertCategory, {
-    categoryId: fixture.categoryId, storeId: fixture.storeB, slug: "changed", name: "Changed", emoji: "🛒", accent: "green", enabled: true, sortOrder: 2,
+    categoryId: fixture.categoryId, storeId: fixture.storeB, slug: "changed", name: "Changed", emoji: "ðŸ›’", accent: "green", enabled: true, sortOrder: 2,
   })).rejects.toThrow();
 
   const rows = await owner.query(api.memberships.listForStore, { storeId: fixture.storeA });
@@ -170,12 +170,12 @@ test("only the super admin can create and inspect stores, and publishing require
   await expect(owner.query(api.stores.listForPlatform, {})).rejects.toThrow();
   await expect(owner.mutation(api.stores.create, {
     name: "Unauthorized", slug: "unauthorized", tagline: "No", phone: "+26650000000", whatsapp: "+26650000000",
-    address: "Maseru", openingHours: "08:00–18:00", deliveryArea: "Maseru",
+    address: "Maseru", openingHours: "08:00â€“18:00", deliveryArea: "Maseru",
   })).rejects.toThrow();
 
   const storeId = await admin.mutation(api.stores.create, {
     name: "New Store", slug: "new-store", tagline: "Local goods", phone: "+26650000000", whatsapp: "+26650000000",
-    address: "Maseru", openingHours: "08:00–18:00", deliveryArea: "Maseru",
+    address: "Maseru", openingHours: "08:00â€“18:00", deliveryArea: "Maseru",
   });
   const initial = await t.run(async (ctx) => ({ store: await ctx.db.get(storeId), settings: await ctx.db.query("storeSettings").withIndex("by_store", (q) => q.eq("storeId", storeId)).unique() }));
   expect(initial.store?.enabled).toBe(false);
@@ -208,7 +208,7 @@ test("store managers can update store settings but cannot control platform publi
   const manager = t.withIdentity(identity(fixture.managerId, "manager@example.test"));
   await manager.mutation(api.catalog.updateStoreSettings, {
     storeId: fixture.storeId, name: "Updated Store", tagline: "More choice", phone: "+26650000001", whatsapp: "+26650000001",
-    address: "New address", openingHours: "09:00–17:00", deliveryFee: 8, minimumOrder: 20,
+    address: "New address", openingHours: "09:00â€“17:00", deliveryFee: 8, minimumOrder: 20,
     deliveryAreas: ["Maseru", "Roma"], defaultDeliveryArea: "Roma", mobileMoneyEnabled: false,
     cashOnDeliveryEnabled: true, cardEnabled: false,
   });
@@ -216,6 +216,65 @@ test("store managers can update store settings but cannot control platform publi
   const persisted = await t.run(async (ctx) => ({ store: await ctx.db.get(fixture.storeId), settings: await ctx.db.get(fixture.settingsId) }));
   expect(persisted.store).toMatchObject({ name: "Updated Store", enabled: true, sortOrder: 1 });
   expect(persisted.settings).toMatchObject({ deliveryFee: 8, minimumOrder: 20, deliveryAreas: ["Maseru", "Roma"], defaultDeliveryArea: "Roma", mobileMoneyEnabled: false });
+});
+
+test("store setup progress is private and reflects setup, catalogue, and team readiness", async () => {
+  const t = convexTest(schema, modules);
+  const fixture = await t.run(async (ctx) => {
+    const ownerId = await user(ctx, "setup-owner@example.test");
+    const outsiderId = await user(ctx, "setup-outsider@example.test");
+    const staffId = await user(ctx, "setup-staff@example.test");
+    const storeId = await store(ctx, "Setup Store");
+    await ctx.db.insert("memberships", { userId: ownerId, storeId, role: "store_owner", status: "active", grantedAt: Date.now() });
+    return { ownerId, outsiderId, staffId, storeId };
+  });
+  const owner = t.withIdentity(identity(fixture.ownerId, "setup-owner@example.test"));
+  const outsider = t.withIdentity(identity(fixture.outsiderId, "setup-outsider@example.test"));
+
+  const initial = await owner.query(api.stores.setupProgress, { storeId: fixture.storeId, now: Date.now() });
+  expect(initial.steps).toEqual({ profile: true, delivery: false, payment: false, catalogue: false, team: false });
+  expect(initial.readyToPublish).toBe(false);
+  expect(initial.preview).toMatchObject({ deliveryArea: "Not set", paymentMethods: [], products: [] });
+  await expect(outsider.query(api.stores.setupProgress, { storeId: fixture.storeId, now: Date.now() })).rejects.toThrow(/do not have access/i);
+
+  await t.run(async (ctx) => {
+    await seedSettings(ctx, fixture.storeId);
+    await seedProduct(ctx, fixture.storeId, "First product");
+    await ctx.db.insert("memberships", { userId: fixture.staffId, storeId: fixture.storeId, role: "order_staff", status: "active", grantedAt: Date.now() });
+  });
+  const complete = await owner.query(api.stores.setupProgress, { storeId: fixture.storeId, now: Date.now() });
+  expect(complete.steps).toEqual({ profile: true, delivery: true, payment: true, catalogue: true, team: true });
+  expect(complete.readyToPublish).toBe(true);
+  expect(complete.preview).toMatchObject({
+    deliveryArea: "Maseru",
+    paymentMethods: ["Cash on delivery", "Manual mobile money"],
+    products: [{ name: "First product", price: 10, unit: "each" }],
+  });
+});
+
+test("store publication enforces complete profile and at least one supported payment method", async () => {
+  const t = convexTest(schema, modules);
+  const fixture = await t.run(async (ctx) => {
+    const adminId = await user(ctx, "publish-admin@example.test");
+    const ownerId = await user(ctx, "publish-owner@example.test");
+    await ctx.db.insert("memberships", { userId: adminId, role: "superadmin", status: "active", grantedAt: Date.now() });
+    const storeId = await store(ctx, "Ready Store");
+    await ctx.db.patch(storeId, { enabled: false, tagline: "  " });
+    await ctx.db.insert("memberships", { userId: ownerId, storeId, role: "store_owner", status: "active", grantedAt: Date.now() });
+    await seedSettings(ctx, storeId);
+    await seedProduct(ctx, storeId, "First product");
+    const settings = await ctx.db.query("storeSettings").withIndex("by_store", (q) => q.eq("storeId", storeId)).unique();
+    await ctx.db.patch(settings!._id, { cashOnDeliveryEnabled: false, mobileMoneyEnabled: false });
+    return { adminId, storeId, settingsId: settings!._id };
+  });
+  const admin = t.withIdentity(identity(fixture.adminId, "publish-admin@example.test"));
+
+  await expect(admin.mutation(api.stores.setEnabled, { storeId: fixture.storeId, enabled: true })).rejects.toThrow(/profile/i);
+  await t.run(async (ctx) => {
+    await ctx.db.patch(fixture.storeId, { tagline: "Local groceries" });
+  });
+  await expect(admin.mutation(api.stores.setEnabled, { storeId: fixture.storeId, enabled: true })).rejects.toThrow(/payment method/i);
+  await expect(t.run(async (ctx) => await ctx.db.get(fixture.storeId))).resolves.toMatchObject({ enabled: false });
 });
 
 test("staff invitations verify email, grant only the invited store role, and expire without granting access", async () => {
@@ -285,18 +344,19 @@ test("driver status changes require the assigned driver and append an event atom
     const dispatcherId = await user(ctx, "dispatch@example.test");
     const driverId = await user(ctx, "driver@example.test");
     const otherDriverId = await user(ctx, "other-driver@example.test");
+    const customerUserId = await user(ctx, "delivery-customer@example.test");
     const storeId = await store(ctx, "Store A");
-    const customerId = await ctx.db.insert("customers", { name: "Customer", phone: "+26650000003", normalizedPhone: "+26650000003", email: "private@example.test", orderCount: 1, lifetimeSpend: 15, lastOrderAt: Date.now() });
+    const customerId = await ctx.db.insert("customers", { userId: customerUserId, name: "Customer", phone: "+26650000003", normalizedPhone: "+26650000003", email: "private@example.test", orderCount: 1, lifetimeSpend: 15, lastOrderAt: Date.now() });
     await ctx.db.insert("memberships", { userId: dispatcherId, storeId, role: "dispatcher", status: "active", grantedAt: Date.now() });
     await ctx.db.insert("memberships", { userId: driverId, storeId, role: "driver", status: "active", grantedAt: Date.now() });
     await ctx.db.insert("memberships", { userId: otherDriverId, storeId, role: "driver", status: "active", grantedAt: Date.now() });
     const orderId = await ctx.db.insert("orders", {
       storeId, storeName: "Store A", orderNumber: "REE-TEST-1", checkoutId: "CHECKOUT-1", customerId,
-      customerUserId: undefined, driverUserId: driverId, driverName: "Driver", customer: { name: "Customer", phone: "+26650000003" }, items: [],
+      customerUserId, driverUserId: driverId, driverName: "Driver", customer: { name: "Customer", phone: "+26650000003" }, items: [],
       destination: { area: "Maseru", address: "Main street" }, payment: { method: "cash_on_delivery", status: "unpaid" },
       subtotal: 10, deliveryFee: 5, total: 15, status: "ready", createdAt: Date.now(), estimatedDeliveryAt: Date.now() + 1000,
     });
-    return { driverId, otherDriverId, orderId };
+    return { driverId, otherDriverId, customerUserId, orderId };
   });
   const driver = t.withIdentity(identity(fixture.driverId, "driver@example.test"));
   const otherDriver = t.withIdentity(identity(fixture.otherDriverId, "other-driver@example.test"));
@@ -308,7 +368,14 @@ test("driver status changes require the assigned driver and append an event atom
   await expect(otherDriver.mutation(api.orders.updateStatus, { orderId: fixture.orderId, status: "out_for_delivery" })).rejects.toThrow();
   await expect(driver.mutation(api.orders.updateStatus, { orderId: fixture.orderId, status: "delivered" })).rejects.toThrow();
   await driver.mutation(api.orders.updateStatus, { orderId: fixture.orderId, status: "out_for_delivery" });
-  await driver.mutation(api.orders.updateStatus, { orderId: fixture.orderId, status: "delivered" });
+  const customer = t.withIdentity(identity(fixture.customerUserId, "delivery-customer@example.test"));
+  const confirmation = await customer.query(api.orders.deliveryConfirmationCode, { orderId: fixture.orderId });
+  expect(confirmation?.code).toMatch(/^\d{6}$/);
+  expect(await driver.query(api.orders.deliveryConfirmationCode, { orderId: fixture.orderId })).toBeNull();
+  const wrongCode = confirmation?.code === "000000" ? "000001" : "000000";
+  await expect(driver.mutation(api.orders.confirmDelivery, { orderId: fixture.orderId, code: wrongCode })).resolves.toMatchObject({ success: false });
+  await driver.mutation(api.orders.confirmDelivery, { orderId: fixture.orderId, code: confirmation!.code });
+  await expect(driver.mutation(api.orders.confirmDelivery, { orderId: fixture.orderId, code: confirmation!.code })).rejects.toThrow();
   const persisted = await t.run(async (ctx) => ({
     order: await ctx.db.get(fixture.orderId),
     timeline: await ctx.db.query("orderEvents").withIndex("by_order", (q) => q.eq("orderId", fixture.orderId)).take(10),
@@ -393,9 +460,10 @@ test("managers can reject only a newly received order and persist its customer t
   expect(persisted.event).toMatchObject({ eventType: "OrderStatusChanged", status: "rejected", actorId: fixture.managerId, version: 1 });
 });
 
-test("guest checkout splits multiple stores into separate orders and writes matching events", async () => {
+test("authenticated customer checkout splits multiple stores and rejects guests", async () => {
   const t = convexTest(schema, modules);
   const fixture = await t.run(async (ctx) => {
+    const customerId = await user(ctx, "customer@example.test");
     const storeA = await store(ctx, "Store A");
     const storeB = await store(ctx, "Store B");
     await seedSettings(ctx, storeA);
@@ -407,27 +475,49 @@ test("guest checkout splits multiple stores into separate orders and writes matc
       storeId: storeA, name: "Five maloti off", type: "coupon", value: 5,
       code: "SAVE5", startDate: today, endDate: today, active: true,
     });
-    return { storeA, storeB, productA, productB };
+    return { customerId, storeA, storeB, productA, productB };
   });
 
-  const receipt = await t.mutation(api.orders.placeGuestOrder, {
-    checkoutId: "multi-store-checkout-001", customer: { name: "Guest Customer", phone: "+26650000004" },
+  const checkout = t.withIdentity(identity(fixture.customerId, "customer@example.test"));
+  const customer = { name: "Customer", phone: "+26650000004", email: "customer@example.test" };
+  await expect(t.mutation(api.orders.placeGuestOrder, {
+    checkoutId: "guest-checkout-blocked-001", customer,
+    destination: { area: "Maseru", address: "Main street" }, paymentMethod: "cash_on_delivery",
+    items: [{ productId: fixture.productA, quantity: 1 }],
+  })).rejects.toThrow(/sign in or create a customer account/i);
+  const beforeAuthentication = await t.run(async (ctx) => ({
+    orders: await ctx.db.query("orders").take(10),
+    checkouts: await ctx.db.query("checkouts").take(10),
+  }));
+  expect(beforeAuthentication.orders).toHaveLength(0);
+  expect(beforeAuthentication.checkouts).toHaveLength(0);
+
+  const receipt = await checkout.mutation(api.orders.placeGuestOrder, {
+    checkoutId: "multi-store-checkout-001", customer,
+    destination: { area: "Maseru", address: "Main street" }, paymentMethod: "cash_on_delivery", couponCode: "save5",
+    items: [{ productId: fixture.productA, quantity: 2 }, { productId: fixture.productB, quantity: 1 }],
+  });
+
+  const retry = await checkout.mutation(api.orders.placeGuestOrder, {
+    checkoutId: "multi-store-checkout-001", customer,
     destination: { area: "Maseru", address: "Main street" }, paymentMethod: "cash_on_delivery", couponCode: "save5",
     items: [{ productId: fixture.productA, quantity: 2 }, { productId: fixture.productB, quantity: 1 }],
   });
 
   expect(receipt.storeCount).toBe(2);
+  expect(retry.orders.map((order) => order.orderId)).toEqual(receipt.orders.map((order) => order.orderId));
+  expect(retry.total).toBe(receipt.total);
   expect(receipt.orders.map((order) => order.storeId).sort()).toEqual([fixture.storeA, fixture.storeB].sort());
   expect(receipt.total).toBe(35);
   expect(receipt.orders.find((order) => order.storeId === fixture.storeA)).toMatchObject({ subtotal: 20, discount: 5, total: 20 });
   expect(receipt.orders.find((order) => order.storeId === fixture.storeB)).toMatchObject({ subtotal: 10, discount: 0, total: 15 });
-  await expect(t.mutation(api.orders.placeGuestOrder, {
-    checkoutId: "invalid-coupon-checkout-01", customer: { name: "Guest Customer", phone: "+26650000004" },
+  await expect(checkout.mutation(api.orders.placeGuestOrder, {
+    checkoutId: "invalid-coupon-checkout-01", customer,
     destination: { area: "Maseru", address: "Main street" }, paymentMethod: "cash_on_delivery", couponCode: "NOTREAL",
     items: [{ productId: fixture.productA, quantity: 1 }],
   })).rejects.toThrow(/coupon is invalid/i);
-  await expect(t.mutation(api.orders.placeGuestOrder, {
-    checkoutId: "unconfigured-card-checkout", customer: { name: "Guest Customer", phone: "+26650000004" },
+  await expect(checkout.mutation(api.orders.placeGuestOrder, {
+    checkoutId: "unconfigured-card-checkout", customer,
     destination: { area: "Maseru", address: "Main street" }, paymentMethod: "card",
     items: [{ productId: fixture.productA, quantity: 1 }],
   })).rejects.toThrow(/card payments are not configured/i);
@@ -444,3 +534,170 @@ test("guest checkout splits multiple stores into separate orders and writes matc
   expect(persisted.productA?.stock).toBe(8);
   expect(persisted.productB?.stock).toBe(9);
 });
+
+test("multi-store recovery keeps sibling orders intact and checkout retries do not duplicate", async () => {
+  const t = convexTest(schema, modules);
+  const fixture = await t.run(async (ctx) => {
+    const customerId = await user(ctx, "recovery-customer@example.test");
+    const managerId = await user(ctx, "recovery-manager@example.test");
+    const storeA = await store(ctx, "Recovery Store A");
+    const storeB = await store(ctx, "Recovery Store B");
+    await seedSettings(ctx, storeA);
+    await seedSettings(ctx, storeB);
+    const productA = await seedProduct(ctx, storeA, "Recovery apples");
+    const productB = await seedProduct(ctx, storeB, "Recovery bread");
+    await ctx.db.insert("memberships", { userId: managerId, storeId: storeA, role: "store_manager", status: "active", grantedAt: Date.now() });
+    return { customerId, managerId, storeA, storeB, productA, productB };
+  });
+  const checkout = t.withIdentity(identity(fixture.customerId, "recovery-customer@example.test"));
+  const manager = t.withIdentity(identity(fixture.managerId, "recovery-manager@example.test"));
+  const customer = { name: "Recovery Customer", phone: "+26650000005", email: "recovery-customer@example.test" };
+  const checkoutArgs = (checkoutId: string) => ({
+    checkoutId, customer,
+    destination: { area: "Maseru", address: "Recovery test address" }, paymentMethod: "cash_on_delivery" as const,
+    items: [{ productId: fixture.productA, quantity: 1 }, { productId: fixture.productB, quantity: 1 }],
+  });
+
+  await t.run(async (ctx) => ctx.db.patch(fixture.productA, { available: false }));
+  await expect(checkout.mutation(api.orders.placeGuestOrder, checkoutArgs("recovery-unavailable-01")))
+    .rejects.toThrow(/products are no longer available/i);
+  const unavailableState = await t.run(async (ctx) => ({
+    orders: await ctx.db.query("orders").take(10),
+    checkouts: await ctx.db.query("checkouts").take(10),
+    productA: await ctx.db.get(fixture.productA),
+    productB: await ctx.db.get(fixture.productB),
+  }));
+  expect(unavailableState.orders).toHaveLength(0);
+  expect(unavailableState.checkouts).toHaveLength(0);
+  expect(unavailableState.productA?.stock).toBe(10);
+  expect(unavailableState.productB?.stock).toBe(10);
+
+  await t.run(async (ctx) => {
+    await ctx.db.patch(fixture.productA, { available: true });
+    await ctx.db.patch(fixture.storeB, { enabled: false });
+  });
+  await expect(checkout.mutation(api.orders.placeGuestOrder, checkoutArgs("recovery-closed-store-01")))
+    .rejects.toThrow(/stores are no longer available/i);
+  const closedStoreState = await t.run(async (ctx) => ({
+    orders: await ctx.db.query("orders").take(10),
+    checkouts: await ctx.db.query("checkouts").take(10),
+    productA: await ctx.db.get(fixture.productA),
+    productB: await ctx.db.get(fixture.productB),
+  }));
+  expect(closedStoreState.orders).toHaveLength(0);
+  expect(closedStoreState.checkouts).toHaveLength(0);
+  expect(closedStoreState.productA?.stock).toBe(10);
+  expect(closedStoreState.productB?.stock).toBe(10);
+
+  await t.run(async (ctx) => ctx.db.patch(fixture.storeB, { enabled: true }));
+  const placed = await checkout.mutation(api.orders.placeGuestOrder, checkoutArgs("recovery-multistore-01"));
+  const uncertainRetry = await checkout.mutation(api.orders.placeGuestOrder, checkoutArgs("recovery-multistore-01"));
+  expect(uncertainRetry.orders.map((order) => order.orderId)).toEqual(placed.orders.map((order) => order.orderId));
+  expect(uncertainRetry.total).toBe(placed.total);
+
+  const rejectedOrder = placed.orders.find((order) => order.storeId === fixture.storeA);
+  const siblingOrder = placed.orders.find((order) => order.storeId === fixture.storeB);
+  expect(rejectedOrder).toBeTruthy();
+  expect(siblingOrder).toBeTruthy();
+  await manager.mutation(api.orders.updateStatus, { orderId: rejectedOrder!.orderId, status: "rejected" });
+  const retryAfterRejection = await checkout.mutation(api.orders.placeGuestOrder, checkoutArgs("recovery-multistore-01"));
+  expect(retryAfterRejection.orders.map((order) => order.orderId)).toEqual(placed.orders.map((order) => order.orderId));
+
+  const retryState = await t.run(async (ctx) => ({
+    orders: await ctx.db.query("orders").withIndex("by_checkout_id", (q) => q.eq("checkoutId", "recovery-multistore-01")).take(10),
+    checkout: await ctx.db.query("checkouts").withIndex("by_checkout_id", (q) => q.eq("checkoutId", "recovery-multistore-01")).unique(),
+  }));
+  expect(retryState.orders).toHaveLength(2);
+  expect(retryState.checkout?.orderIds).toEqual(placed.orders.map((order) => order.orderId));
+  expect(retryState.orders.find((order) => order.storeId === fixture.storeA)?.status).toBe("rejected");
+  expect(retryState.orders.find((order) => order.storeId === fixture.storeB)).toMatchObject({
+    status: "received", total: siblingOrder!.total, items: siblingOrder!.items,
+  });
+});
+
+test("multi-store staff handoff stays scoped and customers see both delivered child orders", async () => {
+  const t = convexTest(schema, modules);
+  const fixture = await t.run(async (ctx) => {
+    const customerUserId = await user(ctx, "customer@example.test");
+    const managerAId = await user(ctx, "manager-a@example.test");
+    const managerBId = await user(ctx, "manager-b@example.test");
+    const staffAId = await user(ctx, "staff-a@example.test");
+    const staffBId = await user(ctx, "staff-b@example.test");
+    const driverAId = await user(ctx, "driver-a@example.test");
+    const driverBId = await user(ctx, "driver-b@example.test");
+    const otherDriverId = await user(ctx, "other-driver@example.test");
+    const storeA = await store(ctx, "Store A");
+    const storeB = await store(ctx, "Store B");
+    const customerId = await ctx.db.insert("customers", {
+      userId: customerUserId, name: "Customer", phone: "+26650000004", normalizedPhone: "+26650000004",
+      orderCount: 2, lifetimeSpend: 30, lastOrderAt: Date.now(),
+    });
+    for (const [userId, storeId, role] of [
+      [managerAId, storeA, "store_manager"], [staffAId, storeA, "order_staff"], [driverAId, storeA, "driver"],
+      [managerBId, storeB, "store_manager"], [staffBId, storeB, "order_staff"], [driverBId, storeB, "driver"],
+      [otherDriverId, storeA, "driver"],
+    ] as const) {
+      await ctx.db.insert("memberships", { userId, storeId, role, status: "active", grantedAt: Date.now() });
+    }
+    const makeOrder = async (storeId: Id<"stores">, storeName: string, orderNumber: string) => await ctx.db.insert("orders", {
+      storeId, storeName, orderNumber, checkoutId: "MULTI-STORE-CHECKOUT", customerId, customerUserId,
+      customer: { name: "Customer", phone: "+26650000004" }, items: [],
+      destination: { area: "Maseru", address: "Main street" }, payment: { method: "cash_on_delivery", status: "unpaid" },
+      subtotal: 10, deliveryFee: 5, total: 15, status: "received", createdAt: Date.now(), estimatedDeliveryAt: Date.now() + 1000,
+    });
+    const orderAId = await makeOrder(storeA, "Store A", "REE-CHILD-A");
+    const orderBId = await makeOrder(storeB, "Store B", "REE-CHILD-B");
+    return { customerUserId, managerAId, managerBId, staffAId, staffBId, driverAId, driverBId, otherDriverId, storeA, storeB, orderAId, orderBId };
+  });
+  const managerA = t.withIdentity(identity(fixture.managerAId, "manager-a@example.test"));
+  const managerB = t.withIdentity(identity(fixture.managerBId, "manager-b@example.test"));
+  const staffA = t.withIdentity(identity(fixture.staffAId, "staff-a@example.test"));
+  const staffB = t.withIdentity(identity(fixture.staffBId, "staff-b@example.test"));
+  const driverA = t.withIdentity(identity(fixture.driverAId, "driver-a@example.test"));
+  const driverB = t.withIdentity(identity(fixture.driverBId, "driver-b@example.test"));
+  const otherDriver = t.withIdentity(identity(fixture.otherDriverId, "other-driver@example.test"));
+
+  const managerAOrders = await managerA.query(api.orders.listForStaff, {});
+  const managerBOrders = await managerB.query(api.orders.listForStaff, {});
+  expect(managerAOrders?.orders.map((order) => order._id)).toEqual([fixture.orderAId]);
+  expect(managerBOrders?.orders.map((order) => order._id)).toEqual([fixture.orderBId]);
+  await expect(managerA.mutation(api.orders.assignPreparationStaff, { orderId: fixture.orderBId, staffUserId: fixture.staffAId })).rejects.toThrow();
+  await expect(managerA.mutation(api.orders.assignDriver, { orderId: fixture.orderBId, driverUserId: fixture.driverAId })).rejects.toThrow();
+  await managerA.mutation(api.orders.assignPreparationStaff, { orderId: fixture.orderAId, staffUserId: fixture.staffAId });
+  await managerB.mutation(api.orders.assignPreparationStaff, { orderId: fixture.orderBId, staffUserId: fixture.staffBId });
+  const staffAOrders = await staffA.query(api.orders.listForStaff, {});
+  const staffBOrders = await staffB.query(api.orders.listForStaff, {});
+  expect(staffAOrders?.orders.map((order) => order._id)).toEqual([fixture.orderAId]);
+  expect(staffBOrders?.orders.map((order) => order._id)).toEqual([fixture.orderBId]);
+  await expect(staffA.mutation(api.orders.updateStatus, { orderId: fixture.orderBId, status: "confirmed" })).rejects.toThrow();
+  await expect(managerA.mutation(api.orders.assignDriver, { orderId: fixture.orderAId, driverUserId: fixture.driverBId })).rejects.toThrow(/active driver for this store/i);
+
+  for (const [manager, staff, driver, orderId] of [
+    [managerA, staffA, driverA, fixture.orderAId], [managerB, staffB, driverB, fixture.orderBId],
+  ] as const) {
+    await staff.mutation(api.orders.updateStatus, { orderId, status: "confirmed" });
+    await staff.mutation(api.orders.updateStatus, { orderId, status: "preparing" });
+    await staff.mutation(api.orders.updateStatus, { orderId, status: "ready" });
+    await manager.mutation(api.orders.assignDriver, { orderId, driverUserId: orderId === fixture.orderAId ? fixture.driverAId : fixture.driverBId });
+    await expect(driver.mutation(api.orders.updateStatus, { orderId, status: "delivered" })).rejects.toThrow();
+  }
+  expect((await driverA.query(api.orders.myAssigned, {}))?.orders.map((order) => order._id)).toEqual([fixture.orderAId]);
+  expect((await driverB.query(api.orders.myAssigned, {}))?.orders.map((order) => order._id)).toEqual([fixture.orderBId]);
+  await expect(otherDriver.mutation(api.orders.updateStatus, { orderId: fixture.orderAId, status: "out_for_delivery" })).rejects.toThrow();
+  await expect(driverA.mutation(api.orders.updateStatus, { orderId: fixture.orderBId, status: "out_for_delivery" })).rejects.toThrow();
+  for (const [driver, orderId] of [[driverA, fixture.orderAId], [driverB, fixture.orderBId]] as const) {
+    await driver.mutation(api.orders.updateStatus, { orderId, status: "out_for_delivery" });
+    const code = await t.run(async (ctx) => (await ctx.db.query("deliveryConfirmationCodes")
+      .withIndex("by_order", (q) => q.eq("orderId", orderId)).unique())?.code);
+    await driver.mutation(api.orders.confirmDelivery, { orderId, code: code! });
+  }
+  const customer = t.withIdentity(identity(fixture.customerUserId, "customer@example.test"));
+  const customerOrders = await customer.query(api.customers.myOrders, {});
+  expect(customerOrders).toHaveLength(2);
+  expect(customerOrders.map((order) => order.status).sort()).toEqual(["delivered", "delivered"]);
+  expect(customerOrders.map((order) => order.timeline.map((event) => event.status))).toEqual([
+    ["confirmed", "preparing", "ready", "out_for_delivery", "delivered"],
+    ["confirmed", "preparing", "ready", "out_for_delivery", "delivered"],
+  ]);
+});
+
