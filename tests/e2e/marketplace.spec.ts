@@ -212,7 +212,11 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
   );
 
   const managerContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  const driverContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const driverContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    permissions: ["geolocation"],
+    geolocation: { latitude: -29.31, longitude: 27.49 },
+  });
   try {
     const managerPage = await managerContext.newPage();
     const managerDeployment = await openPreviewAndVerifyDeployment(managerPage);
@@ -283,13 +287,27 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
       .filter({ hasText: orderNumber! });
     await expect(currentStop).toContainText(orderNumber!);
     await currentStop.getByRole("button", { name: "Start delivery" }).click();
+    await expect(driverPage.getByText("Your live location is being shared with this customer while this stop is active.", { exact: true })).toBeVisible();
+    await page.goto("/orders");
+    const customerOrder = page.locator("article").filter({ hasText: orderNumber! });
+    const liveTracking = customerOrder.getByRole("region", { name: "Live delivery tracking" });
+    await expect(liveTracking).toBeVisible();
+    const customerMap = liveTracking.getByRole("img", { name: "Live driver location and route to your delivery address" });
+    await expect(customerMap).toBeVisible();
+    await expect(liveTracking.getByText("The map is unavailable right now.", { exact: true })).toHaveCount(0);
+    const locationUpdated = liveTracking.locator("p[role='status']").first();
+    await expect(locationUpdated).toHaveText("Updated just now");
+    await driverPage.waitForTimeout(10_500);
+    await driverPage.bringToFront();
+    await driverContext.setGeolocation({ latitude: -29.3095, longitude: 27.4912 });
+    await expect(locationUpdated, "The customer view should receive the driver's next simulated GPS position").toHaveText("Updated just now");
+    await expect(customerMap).toBeVisible();
+    await page.bringToFront();
     await currentStop.getByRole("button", { name: "Confirm delivery" }).click();
     const deliveryConfirmation = driverPage.getByRole("alertdialog");
     await expect(
       deliveryConfirmation.getByRole("heading", { name: "Enter the customerâ€™s delivery code" }),
     ).toBeVisible();
-    await page.goto("/orders");
-    const customerOrder = page.locator("article").filter({ hasText: orderNumber! });
     const deliveryCode = await customerOrder.getByRole("region", { name: "Delivery confirmation code" }).locator("p.font-mono").innerText();
     await deliveryConfirmation.getByLabel("Customer delivery confirmation code").fill(deliveryCode);
     await deliveryConfirmation.getByRole("button", { name: "Confirm delivered" }).click();
