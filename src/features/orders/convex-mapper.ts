@@ -26,6 +26,7 @@ export function mapConvexOrder(order: Doc<"orders">, timeline: Doc<"orderEvents"
       quantity: item.quantity,
       soldByWeight: item.soldByWeight,
       lineTotal: item.lineTotal,
+      prepared: item.prepared ?? false,
     })),
     address: {
       area: order.destination.area,

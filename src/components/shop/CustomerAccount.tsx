@@ -5,6 +5,9 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { mapConvexOrder } from "@/features/orders/convex-mapper";
+import { CustomerDeliveryTracking } from "@/components/shop/CustomerDeliveryTracking";
+import { CustomerDeliveryConfirmation } from "@/components/shop/CustomerDeliveryConfirmation";
+import { CustomerBaskets } from "@/components/shop/CustomerBaskets";
 import {
   Heart,
   MapPin,
@@ -13,6 +16,7 @@ import {
   Bell,
   Trash2,
   ShoppingBag,
+  ShoppingBasket,
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +36,7 @@ const sections = [
   ["profile", "Profile", UserRound],
   ["addresses", "Addresses", MapPin],
   ["orders", "Orders", Package],
+  ["baskets", "Saved baskets", ShoppingBasket],
   ["favourites", "Favourites", Heart],
   ["preferences", "Preferences", Bell],
 ] as const;
@@ -42,10 +47,16 @@ export function CustomerAccount({ initialSection = "profile" }: { initialSection
   const { signOut } = useAuthActions();
   const ownOrders = useQuery(api.customers.myOrders, isAuthenticated ? {} : "skip");
   const updateProfile = useMutation(api.customers.updateProfile);
+  const createBasketFromOrder = useMutation(api.baskets.createFromOrder);
+  const previewOrderReorder = useMutation(api.baskets.previewOrderReorder);
   const [section, setSection] = useState<Section>(initialSection);
   const [notice, setNotice] = useState("");
   const [profileError, setProfileError] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [reorderingOrderId, setReorderingOrderId] = useState<string | null>(null);
+  const [savingOrderBasket, setSavingOrderBasket] = useState(false);
+  const [orderBasketName, setOrderBasketName] = useState("");
   const myOrders = (ownOrders ?? []).map((order) => mapConvexOrder(order, order.timeline));
   const saveProfile = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -214,6 +225,8 @@ export function CustomerAccount({ initialSection = "profile" }: { initialSection
                           {ORDER_STATUS_LABEL[order.status]}
                         </span>
                       </div>
+                      <CustomerDeliveryTracking orderId={order.id} orderStatus={order.status} />
+                      <CustomerDeliveryConfirmation orderId={order.id} orderStatus={order.status} />
                       <p className="mt-4 break-words text-sm">
                         {order.items.map((i) => `${i.quantity} × ${i.name}`).join(" · ")}
                       </p>
@@ -254,15 +267,69 @@ export function CustomerAccount({ initialSection = "profile" }: { initialSection
                       <Button
                         className="mt-2 min-h-11 w-full sm:w-auto"
                         variant="outline"
-                        onClick={() => {
-                          const r = s.reorder(order.id);
-                          setNotice(
-                            `${r.added} item${r.added === 1 ? "" : "s"} added to your cart.${r.unavailable.length ? ` Unavailable: ${r.unavailable.join(", ")}.` : ""}${r.priceChanged.length ? ` Prices changed for: ${r.priceChanged.join(", ")}.` : ""}`,
-                          );
+                        disabled={reorderingOrderId === order.id}
+                        onClick={async () => {
+                          setReorderingOrderId(order.id);
+                          try {
+                            const result = await previewOrderReorder({ orderId: order.id as Id<"orders"> });
+                            const blocked = [...result.blocked];
+                            const changedPrices: string[] = [];
+                            let addedCount = 0;
+                            for (const item of result.added) {
+                              const existingQuantity = s.cart.find((cartItem) => cartItem.productId === String(item.productId))?.quantity ?? 0;
+                              if (existingQuantity + item.quantity > item.stock) {
+                                blocked.push({ name: item.name, reason: `Your cart plus this order would exceed the ${item.stock} currently available.` });
+                                continue;
+                              }
+                              s.addToCart({
+                                id: String(item.productId), storeId: String(item.storeId), storeName: item.storeName,
+                                slug: item.slug, name: item.name, description: item.description, categoryId: String(item.categoryId),
+                                price: item.price, ...(item.promoPrice === undefined ? {} : { promoPrice: item.promoPrice }),
+                                unit: item.unit, soldByWeight: item.soldByWeight,
+                                ...(item.weightOptions === undefined ? {} : { weightOptions: item.weightOptions }),
+                                stock: item.stock, lowStockThreshold: item.lowStockThreshold, available: item.available,
+                                popularity: item.popularity, createdAt: item.createdAt, emoji: item.emoji,
+                                ...(item.variants === undefined ? {} : { variants: item.variants.map((variant, index) => ({ id: `${item.productId}-${index}`, ...variant })) }),
+                              }, item.quantity);
+                              addedCount += 1;
+                              if (item.priceChanged) changedPrices.push(item.name);
+                            }
+                            setNotice(
+                              `${addedCount} item${addedCount === 1 ? "" : "s"} added to your cart.${blocked.length ? ` Not added: ${blocked.map((item) => `${item.name} (${item.reason})`).join("; ")}.` : ""}${changedPrices.length ? ` Current prices changed for: ${changedPrices.join(", ")}.` : ""}`,
+                            );
+                          } catch (reason) {
+                            setNotice(reason instanceof Error ? reason.message : "Could not rebuild this order. Please try again.");
+                          } finally {
+                            setReorderingOrderId(null);
+                          }
                         }}
                       >
-                        Order these again
+                        {reorderingOrderId === order.id ? "Checking availability…" : "Order these again"}
                       </Button>
+                      {editingOrderId === order.id ? (
+                        <form className="mt-3 flex flex-col gap-2 sm:flex-row" onSubmit={async (event) => {
+                          event.preventDefault();
+                          setSavingOrderBasket(true);
+                          try {
+                            await createBasketFromOrder({ name: orderBasketName, orderId: order.id as Id<"orders"> });
+                            setNotice("Saved this order as a basket. Find it in Saved baskets.");
+                            setOrderBasketName("");
+                            setEditingOrderId(null);
+                          } catch (reason) {
+                            setNotice(reason instanceof Error ? reason.message : "Could not save this order as a basket.");
+                          } finally {
+                            setSavingOrderBasket(false);
+                          }
+                        }}>
+                          <Input aria-label={`Basket name for order ${order.number}`} required maxLength={60} value={orderBasketName} onChange={(event) => setOrderBasketName(event.target.value)} placeholder="Name this basket" className="min-h-11" />
+                          <Button className="min-h-11" disabled={savingOrderBasket}>{savingOrderBasket ? "Saving…" : "Save basket"}</Button>
+                          <Button type="button" variant="ghost" className="min-h-11" disabled={savingOrderBasket} onClick={() => { setEditingOrderId(null); setOrderBasketName(""); }}>Cancel</Button>
+                        </form>
+                      ) : (
+                        <Button type="button" variant="ghost" className="mt-2 min-h-11 w-full sm:ml-2 sm:mt-0 sm:w-auto" onClick={() => { setEditingOrderId(order.id); setOrderBasketName("Weekly Essentials"); }}>
+                          Save as basket
+                        </Button>
+                      )}
                     </article>
                   ))}
                 </div>
@@ -275,6 +342,7 @@ export function CustomerAccount({ initialSection = "profile" }: { initialSection
               )}
             </section>
           )}
+          {section === "baskets" && <CustomerBaskets />}
           {section === "favourites" && (
             <section>
               <h2 className="text-xl font-semibold">Saved favourites</h2>

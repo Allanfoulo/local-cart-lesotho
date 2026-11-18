@@ -2,7 +2,9 @@
 
 **Status:** Historical prototype specification; its browser-local data and unprotected-route assumptions are superseded by the [marketplace auth and membership design](2026-10-10-marketplace-auth-membership-events-design.md) and [mobile-first marketplace implementation plan](../plans/2026-10-15-mobile-first-marketplace-implementation-plan.md).
 
-Use this document only for historical context on the original account and checkout interaction decisions. Current access control, Convex data ownership, guest multi-store checkout, responsive acceptance, and release scope follow the newer approved documents.
+**Current checkout policy:** guests may browse and build a basket, but a valid email and verified account or sign-in are required before order placement. The optional email and guest-order steps below describe the old prototype only.
+
+Use this document only for historical context on the original account and checkout interaction decisions. Current access control, Convex data ownership, account-gated multi-store checkout, responsive acceptance, and release scope follow the newer approved documents.
 
 ## Context
 

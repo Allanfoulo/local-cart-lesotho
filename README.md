@@ -1,23 +1,23 @@
-﻿# Local Cart Lesotho
+# REETAPELE
 
 ## Project goal
 
-Local Cart Lesotho is a mobile-first grocery shopping app for a neighbourhood shop in Maseru. It brings everyday groceries and household essentials online while keeping the experience familiar, affordable, and dependable.
+REETAPELE is a mobile-first neighbourhood marketplace for weekly groceries and household essentials in Lesotho. The first pilot is operated through our own grocery store; the architecture supports additional independent stores after the first-party operation is validated.
 
 Customers can browse and search products, see Maloti prices and availability, build a cart, choose delivery and payment details, place orders, and review order progress. Shop staff have tools for managing the catalogue, stock, promotions, orders, and fulfilment.
 
-The project is designed for one local shop today. Its data and UI should remain clear enough to support additional shops or real service integrations later.
+The pilot will serve Ha-Matala Phase I and/or Phase II once the operating area and delivery policy are confirmed. English and Sesotho are required customer languages. Operational dependability takes priority over marketplace expansion.
 
 ## Architecture
 
 - **TanStack Start, TanStack Router, React, and TypeScript** power the application. Routes live in `src/routes`; file-based routing keeps the customer, admin, operations, and driver journeys easy to locate and extend.
 - **Shared React components** live in `src/components`. Common product, navigation, and form UI can be reused across pages while route components focus on each screen.
-- **Domain types, seed data, pricing, and application state** live in `src/lib`. Keeping these concerns out of page markup makes everyday commerce rules easier to follow and change.
+- **Domain types, seed data, pricing, and application state** live in `src/lib` and `src/domain`. Convex is authoritative for authenticated catalog, inventory, checkout, order, membership, and delivery workflows; browser state supports the active customer cart and presentation.
 - **Tailwind CSS and accessible UI primitives** provide a consistent responsive interface without building every interaction from scratch.
-- **Seeded demo data and browser storage** make the shopping and fulfilment flows usable without a live backend. A future API and database can replace the demo persistence as the project moves toward production.
+- **Convex** stores current marketplace and operational records. Seed data is for development and must not be treated as the verified pilot catalogue or real inventory.
 - **Vite** runs the development server and production build.
 
-This architecture fits the project because file-based routes map naturally to its many shopping and fulfilment screens, TypeScript helps keep product and order data consistent, and reusable components support a coherent mobile experience. The current demo remains straightforward to develop while leaving room to connect real inventory, payments, and delivery services.
+This architecture fits the project because file-based routes map naturally to shopping and fulfillment workflows, TypeScript helps keep product and order data consistent, and reusable components support a coherent mobile experience. Cash on delivery and manually verified mobile money are the current payment workflows; card processing and provider-backed payment verification are not configured.
 
 ## Project structure
 
@@ -45,3 +45,7 @@ Useful commands:
 pnpm build
 pnpm lint
 ```
+
+The app uses a Convex development deployment for authenticated marketplace data. Configure the local Vite Convex URL and the Convex Auth/email variables for the selected non-production deployment before testing sign-in or staff workflows. Keep production credentials separate and never use production data for automated checkout tests.
+
+Netlify builds with pnpm build and publishes dist/client through the TanStack Start Vite adapter. See [the operations runbook](docs/operations-runbook.md) for environment boundaries, preview testing and recovery procedures. See the [marketplace phased plan](docs/marketplace-phased-plan.md) and the REETAPELE completion documents for pilot requirements and readiness gates.

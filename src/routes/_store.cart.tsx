@@ -1,9 +1,15 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { useState, type FormEvent } from "react";
+import { useConvexAuth, useMutation } from "convex/react";
+import { toast } from "sonner";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { Trash2 } from "lucide-react";
 
 import { ProductTile } from "@/components/store/ProductTile";
 import { QuantityStepper } from "@/components/store/QuantityStepper";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { groupCartByStore, useAppStore } from "@/lib/app-store";
 import { formatM, unitLabel } from "@/lib/format";
 
@@ -20,6 +26,10 @@ export const Route = createFileRoute("/_store/cart")({
 });
 
 function CartPage() {
+  const { isAuthenticated } = useConvexAuth();
+  const createBasketFromCart = useMutation(api.baskets.createFromCart);
+  const [savingBasket, setSavingBasket] = useState(false);
+  const [basketName, setBasketName] = useState("");
   const { cart, cartSubtotal, stores, shop, products, setCartQuantity, removeFromCart } =
     useAppStore();
   const groups = groupCartByStore(cart, stores.length ? stores : [shop]);
@@ -32,6 +42,23 @@ function CartPage() {
     return !product || !product.available || product.stock <= 0 || item.quantity > product.stock;
   });
   const checkoutBlocked = belowMin || unavailableItems.length > 0;
+
+  const saveBasket = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSavingBasket(true);
+    try {
+      await createBasketFromCart({
+        name: basketName,
+        items: cart.map((item) => ({ productId: item.productId as Id<"products">, quantity: item.quantity })),
+      });
+      setBasketName("");
+      toast.success("Cart saved as a basket. You can find it in your account.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save this cart as a basket.");
+    } finally {
+      setSavingBasket(false);
+    }
+  };
 
   if (!cart.length) {
     return (
@@ -54,6 +81,14 @@ function CartPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Items and delivery are grouped by store. Each store prepares a separate order.
           </p>
+          {isAuthenticated ? (
+            <form onSubmit={saveBasket} className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <Input aria-label="Saved basket name" required maxLength={60} placeholder="Name this basket, for example Weekly Essentials" value={basketName} onChange={(event) => setBasketName(event.target.value)} className="min-h-11 max-w-md" />
+              <Button type="submit" variant="outline" className="min-h-11" disabled={savingBasket}>{savingBasket ? "Saving…" : "Save cart as basket"}</Button>
+            </form>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground"><Link to="/account" className="font-semibold text-primary">Sign in</Link> to save this cart as a basket.</p>
+          )}
         </div>
         {unavailableItems.length > 0 && (
           <p role="alert" className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">

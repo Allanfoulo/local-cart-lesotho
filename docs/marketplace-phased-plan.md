@@ -2,6 +2,8 @@
 
 This plan follows the approved marketplace authentication, membership, and events design. Convex remains authoritative for identity, tenancy, orders, and operational state. Delivery is development-first; no remote push or production deployment is included.
 
+> **2026-11-18 continuation:** Keep this plan as the record of the existing Convex tenancy, store setup, fulfillment, checkout and readiness work. The repository audit found substantial implementation already present, but the pilot acceptance gaps below remain. Do not replace the first-party REETAPELE store model. The detailed continuation is in [the feature audit](REETAPELE_FEATURE_AUDIT.md), [completion PRD](REETAPELE_COMPLETION_PRD.md), [implementation plan](REETAPELE_IMPLEMENTATION_PLAN.md), [pilot readiness checklist](REETAPELE_PILOT_READINESS.md), and [weekly baskets specification](REETAPELE_WEEKLY_BASKETS_SPEC.md).
+
 ## Phase 1 — Store tenancy and staff access
 
 **Status: core implementation complete in development; marketplace acceptance gaps remain**
@@ -51,7 +53,7 @@ This plan follows the approved marketplace authentication, membership, and event
 - Clarify payment states for cash on delivery and manual mobile money, including staff verification and customer-visible status.
 - Treat payment-provider integration as a production release gate: before enabling provider-backed payments, confirm payment status server-side, verify signed callbacks, make callbacks and retries idempotent, recover from failed/pending payments, reconcile provider records against orders, and support and record refunds. Until then, development/staging may use cash and manual mobile money with explicit pending/verification states; do not display an unconfirmed payment as paid.
 - Send reliable customer updates for acceptance, changes, dispatch, delivery, and cancellation, with a support path for exceptions.
-- Preserve guest checkout and optional customer accounts with customer-owned order/address access.
+- Keep storefront browsing and basket building open to guests. Before submitting an order, require the customer to create an account with a password and verify the email address, or sign in to an existing account. Link each order to the authenticated customer so order history and saved addresses remain account-owned.
 
 **Exit criteria:** per-store and combined totals are server-authoritative; partial failures and retry behavior are unambiguous; each supported development payment method has clear successful, failed, and pending outcomes. Provider-backed production payment methods remain disabled until every payment release gate above passes.
 
@@ -72,3 +74,52 @@ This plan follows the approved marketplace authentication, membership, and event
 See [Phase 5 readiness findings](phase-5-readiness.md) for the development checks and outstanding production actions.
 
 **Exit criteria:** the recorded staging matrix passes across stores, roles, recovery cases, and phone layouts; critical failures are observable and staff know the recovery/escalation path. Production payment methods remain limited to those whose payment gate has passed. Production environment and operational readiness must also pass before release.
+
+## Pilot completion and marketplace expansion sequence
+
+This continuation adds the product requirements from the REETAPELE feature audit without replacing Phases 1–5 above.
+
+### Stage A — Close pilot-critical gaps (P0)
+
+- Confirm the Ha-Matala pilot area (Phase I, Phase II, or both), real delivery policy, fees, hours and support process with the operator. The current seeded areas do not establish the pilot boundary.
+- Replace name-only area configuration with independently enabled/configurable service areas and enforce serviceability and operating policy on the server.
+- Verify checkout registration/email verification, server-side price and stock checks, duplicate submission behavior, manual payment verification and recovery paths on the latest preview.
+- Complete inventory correction history, order/assignment/payment event coverage, failed-delivery procedures and customer support/contact handling where the audit identified gaps.
+- Keep card processing disabled until a payment provider has confirmed status, secure/idempotent callbacks, failure recovery, reconciliation and refund support.
+
+**Exit criteria:** the current first-party store can take an eligible order through supportable, auditable delivery with a confirmed area and no duplicate, oversold or misrouted order.
+
+### Stage B — Complete bilingual customer experience (P0)
+
+- Add `en-LS` and `st-LS` resources and a persistent language switcher available before sign-in.
+- Translate the complete customer journey, dynamic statuses/errors, payment/delivery instructions and notifications; support localized product descriptions and fallback strings.
+- Have payment and delivery language reviewed by a fluent Sesotho speaker.
+
+**Exit criteria:** a Sesotho-speaking customer can finish the complete purchase and understand order changes and support options without needing English.
+
+### Stage C — Operational validation and pilot decision (P0 release gate)
+
+- Extend existing Convex and Playwright suites for current account gate, service zones, checkout retries, stock races, payment state, role isolation, fulfillment exceptions, delivery and localization.
+- Run synthetic-data phone/desktop acceptance, then controlled real-world end-to-end orders after the development matrix passes.
+- Verify production/deploy environment separation, monitoring, backup/recovery, support ownership, staff permissions and incident reporting.
+- Track fulfillment success, accuracy, on-time delivery when windows exist, preparation time, delivery cost, failures/cancellations, complaints and repeat orders. Agree thresholds from pilot evidence rather than assuming them.
+
+**Exit criteria:** the [pilot readiness checklist](REETAPELE_PILOT_READINESS.md) has evidence for each required gate and the operator signs off. Passing builds alone do not authorize unrestricted launch.
+
+### Stage D — Repeat weekly baskets (P1)
+
+- After the core pilot journey is stable, add persistent named baskets, create from a cart/order, edit quantities and weight options, preserve store association, and reprice/revalidate availability before adding to cart.
+- Do not silently substitute products or merchants. Automatic scheduled orders/payments remain out of scope until separate customer authorization and payment requirements are designed.
+
+**Exit criteria:** a returning customer reviews current Maloti prices and stock, resolves unavailable items, and checks out with fewer steps.
+
+### Stage E — Independent merchant marketplace (after first-party validation)
+
+- Keep REETAPELE as its own first-party store. Add merchant application/approval and a separate merchant identity and dashboard only after the pilot proves dependable operations.
+- Preserve store-scoped catalogues, orders, staff and customer-facing child-order statuses. Reuse existing multi-store checkout only after its customer and independent-fulfillment acceptance cases pass.
+- Design commissions, settlement, refund and reconciliation before any payout feature. Do not activate merchant payouts before business and compliance review.
+
+### Stage F — Convenience features (P2)
+
+- Add delivery windows only after hours, capacity, cutoffs, cancellations and rescheduling are operationally defined.
+- Add loyalty, referrals and repeat-purchase campaigns after normal fulfilment works consistently. Do not allow campaign work to delay pilot order reliability.

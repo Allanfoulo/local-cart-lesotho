@@ -18,6 +18,8 @@ import {
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ProductTile } from "@/components/store/ProductTile";
 import { Input } from "@/components/ui/input";
 import { DeliveryPlacesManager } from "@/components/admin/DeliveryPlacesManager";
 import { DispatchBoard } from "@/components/admin/orders/DispatchBoard";
@@ -30,7 +32,7 @@ import { ManagementStoreSelector } from "@/components/admin/ManagementStoreSelec
 import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
 import { ResponsiveDashboardNavigation } from "@/components/layout/ResponsiveDashboardNavigation";
 import { useAppStore, ORDER_STATUS_LABEL, PAYMENT_LABEL, stockStatus } from "@/lib/app-store";
-import { formatDate, formatM } from "@/lib/format";
+import { formatDate, formatM, quantityLabel } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 import {
   canAssignPreparation,
@@ -253,6 +255,8 @@ export function StaffWorkspace({ initialStoreId }: { initialStoreId?: string }) 
                     preparationStaff={preparationStaffForStore}
                     drivers={driversForStore}
                     role={workflowRole(order.storeId)}
+                    currentUserId={access?.userId}
+                    setItemPrepared={store.setOrderItemPrepared}
                   />
                 ))}
                 {openOrders.length === 0 && (
@@ -308,6 +312,8 @@ export function StaffWorkspace({ initialStoreId }: { initialStoreId?: string }) 
                   preparationStaff={preparationStaffForStore}
                   drivers={driversForStore}
                   role={workflowRole(order.storeId)}
+                  currentUserId={access?.userId}
+                  setItemPrepared={store.setOrderItemPrepared}
                 />
               ))}
               {orders.length === 0 && <Empty text="No matching orders." />}
@@ -580,6 +586,8 @@ function OrderRow({
   drivers,
   preparationStaff,
   role,
+  currentUserId,
+  setItemPrepared,
 }: {
   order: ReturnType<typeof useAppStore>["orders"][number];
   setStatus: (id: string, status: OrderStatus) => void;
@@ -589,10 +597,17 @@ function OrderRow({
   drivers: ReturnType<typeof useAppStore>["drivers"];
   preparationStaff: ReturnType<typeof useAppStore>["preparationStaff"];
   role: OrderWorkflowRole;
+  currentUserId?: string;
+  setItemPrepared: (orderId: string, productId: string, prepared: boolean) => void;
 }) {
-  const next = nextOrderStatus(role, order.status);
-  const canManage = canAssignPreparation(role);
+  const effectiveRole = role === "dispatcher" && order.assignedStaffUserId === currentUserId ? "order_staff" : role;
+  const next = nextOrderStatus(effectiveRole, order.status);
+  const canManage = canAssignPreparation(effectiveRole);
   const canDispatch = canManage || role === "dispatcher";
+  const canPrepare = canManage || (effectiveRole === "order_staff" && order.assignedStaffUserId === currentUserId);
+  const preparedCount = order.items.filter((item) => item.prepared === true).length;
+  const allItemsPrepared = order.items.length > 0 && preparedCount === order.items.length;
+  const waitingForPreparationChecklist = next === "ready" && order.status === "preparing" && !allItemsPrepared;
   return (
     <article className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
       <div className="min-w-0">
@@ -609,9 +624,37 @@ function OrderRow({
         <p className="mt-1 text-sm">
           {order.customer.name} · {order.customer.phone} · {order.address.area}
         </p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
-          {order.items.map((i) => `${i.quantity} ${i.name}`).join(" · ")}
-        </p>
+        <section className="mt-3" aria-label={`Items for order ${order.number}`}>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold">Preparation checklist</h4>
+            <span className="text-xs text-muted-foreground">{preparedCount} of {order.items.length} ready</span>
+          </div>
+          <ul className="divide-y rounded-xl border">
+            {order.items.map((item) => (
+              <li key={item.id} className="flex items-center gap-3 p-3">
+                <ProductTile emoji={item.emoji} name={item.name} size="sm" className="size-14 rounded-lg text-2xl" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{item.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {quantityLabel(item.quantity, item.soldByWeight)}{item.soldByWeight ? "" : ` ${item.unit}`}
+                  </p>
+                </div>
+                <label className="flex min-h-11 shrink-0 items-center gap-2 text-sm font-medium">
+                  <Checkbox
+                    aria-label={`Mark ${item.name} prepared for order ${order.number}`}
+                    checked={item.prepared === true}
+                    disabled={!canPrepare || order.status !== "preparing"}
+                    onCheckedChange={(checked) => setItemPrepared(order.id, item.productId, checked === true)}
+                  />
+                  <span className="hidden sm:inline">Done</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          {order.status !== "preparing" && ["received", "confirmed"].includes(order.status) && (
+            <p className="mt-2 text-xs text-muted-foreground">Start preparing this order before checking off items.</p>
+          )}
+        </section>
         <p className="mt-1 text-sm font-semibold">
           {formatM(order.total)}{" "}
           <span className="font-normal text-muted-foreground">
@@ -701,10 +744,11 @@ function OrderRow({
         {order.status !== "delivered" && order.status !== "cancelled" && (
           <>
             {next !== order.status && (
-              <Button size="sm" onClick={() => setStatus(order.id, next)}>
+              <Button size="sm" disabled={waitingForPreparationChecklist} onClick={() => setStatus(order.id, next)}>
                 {next === order.status ? "Current" : `Mark ${ORDER_STATUS_LABEL[next]}`}
               </Button>
             )}
+            {waitingForPreparationChecklist && <p className="w-full text-sm text-muted-foreground">Check off every item before marking this order ready.</p>}
             {canManage && order.status === "received" && (
               <Button size="sm" variant="outline" onClick={() => setStatus(order.id, "rejected")}>
                 Reject order

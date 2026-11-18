@@ -11,6 +11,9 @@ The marketplace domain has not been purchased yet. When it is available, replace
 - Local app: `http://localhost:7093`, backed by the selected Convex development deployment.
 - Netlify deploy previews must use a non-production Convex deployment and synthetic/test accounts. Confirm `VITE_CONVEX_URL` before accepting orders in a preview.
 - Production needs its own Netlify Production `VITE_CONVEX_URL` and its own Convex Auth/email variables. Never copy development secrets into production.
+- `VITE_GOOGLE_MAPS_API_KEY` is a browser key for the Google Maps JavaScript API. Restrict it to approved web origins and the required browser API in Google Cloud Console.
+- `GOOGLE_MAPS_ROUTES_API_KEY` belongs only in the matching Convex deployment environment and is used by the server for active-stop route distance/ETA. Restrict it to the Routes API. Keep development and production keys separate; never expose this key in frontend variables or logs.
+- Live delivery tracking requires both keys. If either provider is unavailable, customers and drivers can still use order status and the delivery address; do not interpret missing map data as a delivery failure.
 - Payment provider integrations are deferred. Do not represent an order as paid based only on an unverified customer claim or a client-side status. Use only payment methods and statuses currently supported by the app.
 
 ## Monitoring and triage
@@ -61,13 +64,13 @@ Record for each run:
 
 - Date/time, preview URL, commit SHA, and Convex deployment name (never a deployment secret).
 - Test roles and synthetic account labels; do not record passwords, OTPs, or tokens.
-- Results for store onboarding, invitations, workspace boundaries, guest/account checkout, multi-store order status, manager fulfillment, dispatch, and driver completion.
+- Results for store onboarding, invitations, workspace boundaries, account-gated checkout (registration, email verification, and existing-account sign-in), multi-store order status, manager fulfillment, dispatch, and driver completion.
 - Any cross-store/wrong-role denial, duplicate-submit behavior, failed email, recovery action, defect reference, and retest result.
 - Name of the person who confirmed the preview uses non-production data.
 
 ### PR #3 report, 2026-10-22
 
-The user reported that PR #3 head `fad5cc1` passed the mobile marketplace smoke test, manager checklist and private storefront preview, catalogue search/filters, marketplace links, driver workspace, and targeted manager preparation/driver assignment and driver delivery confirmation. Three synthetic development orders were created and all were advanced to Delivered. The receipt locator and current dispatch/delivery labels were corrected; after a toast wait and a longer multi-role test timeout, the signed-in customer checkout-to-delivery Playwright test passed on the PR #3 Deploy Preview on 2026-10-22. The public mobile preview smoke also passed. One interrupted synthetic order was completed through the driver account. Admin/owner onboarding, invitations, guest checkout, and cross-store denial were not covered by this run. See the [PR test report](https://github.com/Allanfoulo/local-cart-lesotho/pull/3).
+The user reported that PR #3 head `fad5cc1` passed the mobile marketplace smoke test, manager checklist and private storefront preview, catalogue search/filters, marketplace links, driver workspace, and targeted manager preparation/driver assignment and driver delivery confirmation. Three synthetic development orders were created and all were advanced to Delivered. The receipt locator and current dispatch/delivery labels were corrected; after a toast wait and a longer multi-role test timeout, the signed-in customer checkout-to-delivery Playwright test passed on the PR #3 Deploy Preview on 2026-10-22. The public mobile preview smoke also passed. One interrupted synthetic order was completed through the driver account. Admin/owner onboarding, invitations, the subsequently added account-gate registration/email-verification flow, and cross-store denial were not covered by this run. See the [PR test report](https://github.com/Allanfoulo/local-cart-lesotho/pull/3).
 
 Do not run the complete journey on production data. Before replaying checkout, check for an order created by the prior attempt. For the detailed workflow and negative authorization cases, use the checklist in [Phase 5 readiness](phase-5-readiness.md).
 

@@ -1,5 +1,7 @@
 # Mobile-First REETAPELE Marketplace and App Design
 
+> **Current checkout policy (2026-10-23):** guests may browse and build a basket. Placing an order requires a verified customer account or sign-in. This supersedes the guest-order behavior described in the original design below.
+
 **Status:** Approved direction; implementation plan in `../plans/2026-10-15-mobile-first-marketplace-implementation-plan.md`.
 
 ## 1. Product goal
@@ -15,7 +17,7 @@ Deliver one REETAPELE app for customers, store owners and staff, drivers, and th
 
 ## 3. Primary tasks
 
-1. Discover products and place a guest or signed-in order across one or more stores.
+1. Discover products as a guest or signed-in customer; place a one-store or multi-store order after signing in or creating and verifying a customer account.
 2. Create, configure, and publish a store; invite, manage, and orient its staff.
 3. Accept, prepare, assign, dispatch, deliver, reject, or cancel orders using allowed role actions.
 4. Give customers accurate order and payment status, with a clear support path when something fails.
@@ -49,7 +51,7 @@ The current public `/demo-login` role directory must not act as a role switch or
 
 ### Identity and workspace entry
 
-- Public shopping and guest checkout remain available without an account.
+- Public shopping and basket building remain available without an account. Require customer authentication and verified email before order placement.
 - After sign-in, a person with one active workspace is sent there. A person with multiple eligible workspaces chooses one explicitly.
 - The current workspace and store are always identifiable. Switching requires an explicit action and returns to the selected workspace's landing screen.
 - The same identity may have a customer profile and one or more memberships. Customer data remains self-scoped; staff access remains scoped by active role and store.
@@ -116,7 +118,7 @@ Smart defaults, reciprocity, goal gradient, and truthful price contrast support 
 
 - One app identity supports customer, staff, driver, and super-admin workspaces with explicit switching for multi-role users.
 - Direct links, altered client state, and changed store identifiers cannot cross Convex access boundaries.
-- Guest checkout and multi-store order creation remain supported; customers see honest per-store totals and statuses.
+- Account-gated multi-store order creation remains supported; customers see honest per-store totals and statuses.
 - Store onboarding, staff invitations, order preparation, dispatch, and delivery complete end to end with persisted state.
 - Every current app route has a mobile-first layout and passes the defined responsive/accessibility review.
 - Payment messages match configured and implemented payment capability; no unintegrated provider is presented as operational.

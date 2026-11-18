@@ -184,6 +184,7 @@ interface AppStoreValue extends AppState {
     discount?: number;
   }) => Order;
   updateOrderStatus: (orderId: string, status: OrderStatus, note?: string) => void;
+  setOrderItemPrepared: (orderId: string, productId: string, prepared: boolean) => void;
   setOrderPaymentStatus: (orderId: string, status: Payment["status"]) => void;
   assignDriver: (orderId: string, driver: string) => void;
   assignPreparationStaff: (orderId: string, staffUserId: string) => void;
@@ -217,6 +218,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const createPlatformStoreMutation = useMutation(api.stores.create);
   const setPlatformStoreEnabledMutation = useMutation(api.stores.setEnabled);
   const updateOrderStatusMutation = useMutation(api.orders.updateStatus);
+  const setOrderItemPreparedMutation = useMutation(api.orders.setItemPrepared);
   const assignDriverMutation = useMutation(api.orders.assignDriver);
   const assignPreparationStaffMutation = useMutation(api.orders.assignPreparationStaff);
   const paymentStatusMutation = useMutation(api.orders.setPaymentStatus);
@@ -468,7 +470,17 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
               ...prev,
               cart: prev.cart.map((i) =>
                 i.productId === product.id
-                  ? { ...i, quantity: Number((i.quantity + quantity).toFixed(2)) }
+                  ? {
+                      ...i,
+                      storeId: product.storeId,
+                      storeName: product.storeName,
+                      name: product.name,
+                      unit: product.unit,
+                      unitPrice: product.promoPrice ?? product.price,
+                      emoji: product.emoji,
+                      soldByWeight: product.soldByWeight,
+                      quantity: Number((i.quantity + quantity).toFixed(2)),
+                    }
                   : i,
               ),
             };
@@ -600,6 +612,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         void updateOrderStatusMutation({ orderId: orderId as Id<"orders">, status }).catch(reportFailure);
       },
 
+      setOrderItemPrepared: (orderId, productId, prepared) => {
+        void setOrderItemPreparedMutation({
+          orderId: orderId as Id<"orders">,
+          productId: productId as Id<"products">,
+          prepared,
+        }).catch(reportFailure);
+      },
+
       setOrderPaymentStatus: (orderId, status) => {
         void paymentStatusMutation({ orderId: orderId as Id<"orders">, status }).catch(reportFailure);
       },
@@ -722,7 +742,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
       removeDeliveryLandmark: (id) => { void removePlaceMutation({ placeId: id as Id<"deliveryLandmarks"> }).catch(reportFailure); },
     };
-  }, [state, patch, replaceMarketplaceCatalog, replaceManagementWorkspace, replaceStaffWorkspace, replaceDeliveryLandmarks, replaceCustomerAccount, sendProduct, deleteProductMutation, saveCategoryMutation, savePromotionMutation, saveStoreSettingsMutation, createPlatformStoreMutation, setPlatformStoreEnabledMutation, updateOrderStatusMutation, assignDriverMutation, assignPreparationStaffMutation, paymentStatusMutation, routeSequenceMutation, toggleFavouriteMutation, setPreferenceMutation, updateProfileMutation, saveAddressMutation, removeAddressMutation, savePlaceMutation, removePlaceMutation, reportFailure]);
+  }, [state, patch, replaceMarketplaceCatalog, replaceManagementWorkspace, replaceStaffWorkspace, replaceDeliveryLandmarks, replaceCustomerAccount, sendProduct, deleteProductMutation, saveCategoryMutation, savePromotionMutation, saveStoreSettingsMutation, createPlatformStoreMutation, setPlatformStoreEnabledMutation, updateOrderStatusMutation, setOrderItemPreparedMutation, assignDriverMutation, assignPreparationStaffMutation, paymentStatusMutation, routeSequenceMutation, toggleFavouriteMutation, setPreferenceMutation, updateProfileMutation, saveAddressMutation, removeAddressMutation, savePlaceMutation, removePlaceMutation, reportFailure]);
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;
 }

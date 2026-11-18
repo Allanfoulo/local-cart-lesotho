@@ -12,7 +12,7 @@ Own staff order management and delivery dispatch views.
 
 - Stop ordering is a staff-managed sequence and must not be presented as calculated road directions.
 - Map a destination precisely only when the customer supplied coordinates; area-center points must be labeled approximate.
-- Do not pass customer address or coordinate data to an external provider automatically.
+- Do not pass customer address strings to an external provider. The approved live-tracking feature may send only the current assigned stop's destination coordinates and driver's GPS to Google Routes while that order is `out_for_delivery`.
 
 ## Work Guidance
 
