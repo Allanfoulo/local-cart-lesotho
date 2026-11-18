@@ -70,7 +70,7 @@ interface AppState {
   products: Product[];
   orders: Order[];
   customers: Customer[];
-  drivers: Array<{ id: string; name: string; storeIds: string[] }>;
+  drivers: Array<{ id: string; name: string; email?: string; storeIds: string[] }>;
   preparationStaff: Array<{ id: string; name: string; storeIds: string[] }>;
   promotions: Promotion[];
   notificationPreferences: NotificationPreference[];

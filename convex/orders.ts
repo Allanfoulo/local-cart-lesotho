@@ -471,7 +471,7 @@ export const listForStaff = query({
     const drivers = await Promise.all(driverIds.map(async (driverUserId) => {
       const user = await ctx.db.get(driverUserId);
       const driverMemberships = (await ctx.db.query("memberships").withIndex("by_user", (q) => q.eq("userId", driverUserId)).take(100)).filter((membership) => membership.role === "driver" && membership.status === "active" && storeIds.includes(membership.storeId!));
-      return { userId: driverUserId, name: user?.name ?? user?.email ?? "Driver", storeIds: driverMemberships.map((membership) => membership.storeId).filter(Boolean) };
+      return { userId: driverUserId, name: user?.name ?? user?.email ?? "Driver", email: user?.email ?? "", storeIds: driverMemberships.map((membership) => membership.storeId).filter(Boolean) };
     }));
     const preparationStaffIds = [...new Set(perStore.flatMap((result) => result.preparationStaff.map((membership) => membership.userId)))];
     const preparationStaff = await Promise.all(preparationStaffIds.map(async (staffUserId) => {

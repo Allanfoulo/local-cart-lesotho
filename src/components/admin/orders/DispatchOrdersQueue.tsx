@@ -151,7 +151,7 @@ export function DispatchOrdersQueue({ storeId }: { storeId?: string } = {}) {
                       >
                         <option>Not assigned</option>
                         {drivers.map((driver) => (
-                          <option key={driver.id} value={driver.id}>{driver.name}</option>
+                          <option key={driver.id} value={driver.id}>{driver.email ? `${driver.name} (${driver.email})` : driver.name}</option>
                         ))}
                       </select>
                     </label>

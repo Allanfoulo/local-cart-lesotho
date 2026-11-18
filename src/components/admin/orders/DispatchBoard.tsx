@@ -80,11 +80,12 @@ export function DispatchBoard({ storeId }: { storeId?: string } = {}) {
             disabled={drivers.length === 0}
           >
             {drivers.length === 0 && <option value="">No active drivers</option>}
-            {drivers.map((driverId) => (
-              <option key={driverId} value={driverId}>
-                {dispatchDrivers.find((item) => item.id === driverId)?.name ?? dispatchOrders.find((order) => order.driverUserId === driverId)?.driver ?? "Driver"}
-              </option>
-            ))}
+            {drivers.map((driverId) => {
+              const selectedDriver = dispatchDrivers.find((item) => item.id === driverId);
+              const driverName = selectedDriver?.name ?? dispatchOrders.find((order) => order.driverUserId === driverId)?.driver ?? "Driver";
+              const label = selectedDriver?.email ? `${driverName} (${selectedDriver.email})` : driverName;
+              return <option key={driverId} value={driverId}>{label}</option>;
+            })}
           </select>
         </label>
       </header>

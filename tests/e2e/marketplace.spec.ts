@@ -79,13 +79,13 @@ async function signIn(
 async function assignE2EDriver(select: Locator, driverName: string, driverEmail: string): Promise<string> {
   const options = await select.locator("option").allTextContents();
   const label =
-    options.find((option) => option.trim() === driverName.trim()) ??
-    options.find((option) => option.trim() === driverEmail.trim());
+    options.find((option) => option.toLowerCase().includes(driverEmail.trim().toLowerCase())) ??
+    options.find((option) => option.trim() === driverName.trim());
   expect(label, "The E2E driver account should be available for assignment").toBeTruthy();
-  await select.selectOption({ label: label! });
-  const selectedId = await select.inputValue();
+  const [selectedId] = await select.selectOption({ label: label! });
   expect(selectedId, "The E2E driver account should have a selectable user ID").not.toBe("");
-  return selectedId;
+  await expect(select, "Convex should persist the selected driver assignment").toHaveValue(selectedId!);
+  return selectedId!;
 }
 
 test.afterEach(async ({ page }, testInfo) => {

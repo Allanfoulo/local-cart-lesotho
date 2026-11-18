@@ -70,7 +70,7 @@ export function ConvexWorkspaceSync() {
       replaceStaffWorkspace({
         orders: staffWorkspace.orders.map((order) => mapConvexOrder(order, order.timeline)),
         customers: staffWorkspace.customers.flatMap((customer) => customer ? [mapConvexCustomer(customer)] : []),
-        drivers: staffWorkspace.drivers.map((driver) => ({ id: String(driver.userId), name: driver.name, storeIds: driver.storeIds.map(String) })),
+        drivers: staffWorkspace.drivers.map((driver) => ({ id: String(driver.userId), name: driver.name, email: driver.email, storeIds: driver.storeIds.map(String) })),
         preparationStaff: staffWorkspace.preparationStaff.map((staff) => ({ id: String(staff.userId), name: staff.name, storeIds: staff.storeIds.map(String) })),
         deliveryRouteSequence: Object.fromEntries((staffWorkspace.routeSequences ?? []).map((sequence) => [
           `${String(sequence.storeId)}::${String(sequence.driverUserId)}`, sequence.orderIds.map(String),
