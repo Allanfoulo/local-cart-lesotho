@@ -76,13 +76,16 @@ async function signIn(
   await expect(page).toHaveURL(new RegExp(`${expectedPath}(?:\\?.*)?$`));
 }
 
-async function assignE2EDriver(select: Locator, driverName: string, driverEmail: string) {
+async function assignE2EDriver(select: Locator, driverName: string, driverEmail: string): Promise<string> {
   const options = await select.locator("option").allTextContents();
   const label =
     options.find((option) => option.trim() === driverName.trim()) ??
     options.find((option) => option.trim() === driverEmail.trim());
   expect(label, "The E2E driver account should be available for assignment").toBeTruthy();
   await select.selectOption({ label: label! });
+  const selectedId = await select.inputValue();
+  expect(selectedId, "The E2E driver account should have a selectable user ID").not.toBe("");
+  return selectedId;
 }
 
 test.afterEach(async ({ page }, testInfo) => {
@@ -142,10 +145,12 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
   await customerDeployment.assertDevelopmentDeployment();
 
   await page.goto("/shop");
-  const addButton = page.getByRole("button", { name: "Add", exact: true }).first();
+  const productLink = page.getByRole("link", { name: "Maize Meal 10kg", exact: true }).last();
+  await expect(productLink).toBeVisible();
+  const card = productLink.locator("xpath=ancestor::div[contains(@class,'group')]");
+  const productName = (await productLink.innerText()).trim();
+  const addButton = card.getByRole("button", { name: "Add", exact: true });
   await expect(addButton).toBeVisible();
-  const card = addButton.locator("xpath=ancestor::div[contains(@class,'group')]");
-  const productName = (await card.getByRole("link").nth(1).innerText()).trim();
   await addButton.click();
   const cartLink = page.getByLabel("Cart");
   await expect(cartLink).toBeVisible();
@@ -155,18 +160,19 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
   await expect(page.getByRole("heading", { name: "Your cart" })).toBeVisible();
   await expect(page.getByText(productName, { exact: true }).first()).toBeVisible();
   const basketName = `E2E Weekly Essentials ${Date.now()}`;
-  await page.getByLabel("Saved basket name").fill(basketName);
+  const basketNameInput = page.getByLabel("Saved basket name");
+  await basketNameInput.fill(basketName);
   await page.getByRole("button", { name: "Save cart as basket" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Cart saved as a basket" })).toBeVisible();
+  await expect(basketNameInput).toHaveValue("");
   await page.getByRole("button", { name: `Remove ${productName}` }).click();
   await page.goto("/account");
   await page.getByRole("button", { name: "Open your account navigation" }).click();
   await page.getByRole("button", { name: "Saved baskets" }).click();
-  const savedBasket = page.locator("article").filter({ hasText: basketName });
-  await expect(savedBasket).toBeVisible();
-  await expect(savedBasket).toContainText(productName);
-  await savedBasket.getByRole("button", { name: "Add available to cart" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "1 product added to your cart" })).toBeVisible();
+  const basketsRegion = page.getByRole("region", { name: "Saved baskets" });
+  await expect(basketsRegion.getByRole("textbox", { name: `Basket name ${basketName}` })).toBeVisible();
+  await expect(basketsRegion).toContainText(productName);
+  await basketsRegion.getByRole("button", { name: "Add available to cart" }).first().click();
+  await expect(page.getByText("1 product added to your cart.", { exact: true })).toBeVisible();
   await page.goto("/cart");
   await expect(page.getByRole("heading", { name: "Your cart" })).toBeVisible();
   await expect(page.getByText(productName, { exact: true }).first()).toBeVisible();
@@ -230,14 +236,20 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
     await expect(orderCard.getByRole("button", { name: /Mark preparing/i })).toBeVisible();
     await orderCard.getByRole("button", { name: /Mark preparing/i }).click();
     await expect(orderCard.getByRole("button", { name: /Mark ready/i })).toBeVisible();
+    const preparedCheckbox = orderCard.getByRole("checkbox", { name: `Mark ${productName} prepared for order ${orderNumber}` });
+    await preparedCheckbox.click();
+    await expect(preparedCheckbox).toHaveAttribute("aria-checked", "true");
+    await expect(orderCard.getByRole("button", { name: /Mark ready/i })).toBeEnabled();
     await orderCard.getByRole("button", { name: /Mark ready/i }).click();
 
     const driverAssignment = orderCard.getByLabel(`Assign driver for ${orderNumber}`);
     await expect(driverAssignment).toBeVisible();
-    await assignE2EDriver(driverAssignment, credentials.driverName!, credentials.driverEmail!);
+    const assignedDriverId = await assignE2EDriver(driverAssignment, credentials.driverName!, credentials.driverEmail!);
+    await expect(driverAssignment).toHaveValue(assignedDriverId);
     await managerPage.getByRole("button", { name: "Driver stops", exact: true }).click();
     const routeDriver = managerPage.getByRole("combobox", { name: "Driver" });
-    await assignE2EDriver(routeDriver, credentials.driverName!, credentials.driverEmail!);
+    await routeDriver.selectOption(assignedDriverId);
+    await expect(routeDriver).toHaveValue(assignedDriverId);
     const moveEarlier = managerPage.getByRole("button", { name: `Move ${orderNumber} earlier` });
     for (let move = 0; move < 50 && (await moveEarlier.isEnabled()); move += 1) {
       await moveEarlier.click();
@@ -256,9 +268,9 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
     );
     await driverDeployment.assertDevelopmentDeployment();
     await driverPage.goto("/driver");
-    const currentStop = driverPage.locator(
-      "section[aria-labelledby='current-stop-heading'] article",
-    );
+    const currentStop = driverPage
+      .locator("section[aria-labelledby='current-stop-heading'] article")
+      .filter({ hasText: orderNumber! });
     await expect(currentStop).toContainText(orderNumber!);
     await currentStop.getByRole("button", { name: "Start delivery" }).click();
     await currentStop.getByRole("button", { name: "Confirm delivery" }).click();

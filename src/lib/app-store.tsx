@@ -626,7 +626,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
       assignDriver: (orderId, driver) => {
         const selected = state.drivers.find((item) => item.id === driver || item.name === driver);
-        void assignDriverMutation({ orderId: orderId as Id<"orders">, driverUserId: selected ? selected.id as Id<"users"> : null }).catch(reportFailure);
+        const driverUserId = driver ? (selected?.id ?? driver) as Id<"users"> : null;
+        void assignDriverMutation({ orderId: orderId as Id<"orders">, driverUserId }).catch(reportFailure);
       },
 
       assignPreparationStaff: (orderId, staffUserId) => {
@@ -636,8 +637,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       setDeliveryRouteSequence: (driver, orderIds) => {
         const selected = state.drivers.find((item) => item.id === driver || item.name === driver);
         const storeId = state.orders.find((order) => orderIds.includes(order.id))?.storeId ?? selected?.storeIds[0];
-        if (!selected || !storeId) return;
-        void routeSequenceMutation({ storeId: storeId as Id<"stores">, driverUserId: selected.id as Id<"users">, orderIds: orderIds as Id<"orders">[] }).catch(reportFailure);
+        if (!driver || !storeId) return;
+        void routeSequenceMutation({ storeId: storeId as Id<"stores">, driverUserId: (selected?.id ?? driver) as Id<"users">, orderIds: orderIds as Id<"orders">[] }).catch(reportFailure);
       },
 
       reorder: (orderId) => {
