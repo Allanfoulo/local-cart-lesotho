@@ -32,10 +32,10 @@ function orderSequence(orders: Order[], sequences: Record<string, string[]>) {
     const ids = sequences[`${a.storeId}::${a.driverUserId}`] ?? [];
     const aIndex = ids.indexOf(a.id);
     const bIndex = ids.indexOf(b.id);
-    return (
+    const routeOrder =
       (aIndex < 0 ? Number.MAX_SAFE_INTEGER : aIndex) -
-      (bIndex < 0 ? Number.MAX_SAFE_INTEGER : bIndex)
-    );
+      (bIndex < 0 ? Number.MAX_SAFE_INTEGER : bIndex);
+    return routeOrder || a.createdAt.localeCompare(b.createdAt);
   });
 }
 

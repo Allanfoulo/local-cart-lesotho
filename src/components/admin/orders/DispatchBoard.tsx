@@ -15,10 +15,10 @@ function sortByRoute(orders: Order[], savedIds: string[]) {
   return [...orders].sort((a, b) => {
     const aIndex = savedIds.indexOf(a.id);
     const bIndex = savedIds.indexOf(b.id);
-    return (
+    const routeOrder =
       (aIndex < 0 ? Number.MAX_SAFE_INTEGER : aIndex) -
-      (bIndex < 0 ? Number.MAX_SAFE_INTEGER : bIndex)
-    );
+      (bIndex < 0 ? Number.MAX_SAFE_INTEGER : bIndex);
+    return routeOrder || a.createdAt.localeCompare(b.createdAt);
   });
 }
 
@@ -35,9 +35,9 @@ export function DispatchBoard({ storeId }: { storeId?: string } = {}) {
   const [driver, setDriver] = useState("");
   const activeDriver = drivers.includes(driver) ? driver : (drivers[0] ?? "");
   const activeDriverName = dispatchDrivers.find((item) => item.id === activeDriver)?.name ?? dispatchOrders.find((order) => order.driverUserId === activeDriver)?.driver ?? "Driver";
-  const assigned = dispatchOrders.filter(
-    (order) => order.driverUserId === activeDriver && eligible.has(order.status),
-  );
+  const assigned = dispatchOrders
+    .filter((order) => order.driverUserId === activeDriver && eligible.has(order.status))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const unassigned = dispatchOrders.filter((order) => !order.driver && order.status === "ready");
   const routeStoreId = storeId ?? dispatchOrders.find((order) => order.driverUserId === activeDriver)?.storeId;
   const savedIds = store.deliveryRouteSequence[`${routeStoreId}::${activeDriver}`] ?? [];

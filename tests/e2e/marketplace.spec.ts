@@ -250,11 +250,21 @@ test("customer order is prepared, dispatched, and delivered by the assigned driv
     const routeDriver = managerPage.getByRole("combobox", { name: "Driver" });
     await routeDriver.selectOption(assignedDriverId);
     await expect(routeDriver).toHaveValue(assignedDriverId);
-    const moveEarlier = managerPage.getByRole("button", { name: `Move ${orderNumber} earlier` });
-    for (let move = 0; move < 50 && (await moveEarlier.isEnabled()); move += 1) {
-      await moveEarlier.click();
+    const routeStops = managerPage.locator("ol").first().locator("li");
+    const orderStopIndex = async () =>
+      (await routeStops.allTextContents()).findIndex((text) => text.includes(orderNumber!));
+    let currentStopIndex = await orderStopIndex();
+    if (currentStopIndex === 0 && (await routeStops.count()) > 1) {
+      await managerPage.getByRole("button", { name: `Move ${orderNumber} later` }).click();
+      await expect.poll(orderStopIndex).toBe(1);
+      currentStopIndex = 1;
     }
-    const firstStop = managerPage.locator("ol").first().locator("li").first();
+    for (let move = 0; move < 50 && currentStopIndex > 0; move += 1) {
+      await routeStops.nth(currentStopIndex).getByRole("button", { name: `Move ${orderNumber} earlier` }).click();
+      await expect.poll(orderStopIndex).toBe(currentStopIndex - 1);
+      currentStopIndex -= 1;
+    }
+    const firstStop = routeStops.first();
     await expect(firstStop).toContainText(orderNumber!);
 
     const driverPage = await driverContext.newPage();
