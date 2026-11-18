@@ -13,9 +13,9 @@ Customers must sign in to place an order, and their account page displays their 
 ## Proposed experience
 
 - When the assigned driver starts the delivery, generate a cryptographically random six-digit numeric code for that store order.
-- Show the code in the signed-in customer’s order details only while the order is `out_for_delivery`. The customer reads or shows the code to the driver at handoff.
+- Show the code in the signed-in customerâ€™s order details only while the order is `out_for_delivery`. The customer reads or shows the code to the driver at handoff.
 - Replace the driver's one-tap completion dialog with a numeric code-entry form. A correct code lets the assigned driver mark the order delivered. An incorrect code keeps the order active and shows retry feedback.
-- A customer can request a replacement code from that active order’s details. The replacement immediately invalidates the previous code and is rate limited to one replacement per minute.
+- A customer can request a replacement code from that active orderâ€™s details. The replacement immediately invalidates the previous code and is rate limited to one replacement per minute.
 - The code is single-use and becomes invalid when the order is delivered or cancelled. Each child order in a multi-store checkout has its own code and delivery confirmation.
 
 No SMS or email delivery is part of this feature. The code is shown only in the existing customer account.
@@ -33,7 +33,7 @@ Allow at most five incorrect submissions for a code. After that, the driver must
 Included:
 
 - Generate and persist a separate code when delivery starts.
-- Show the current code in the owning customer’s active order details.
+- Show the current code in the owning customerâ€™s active order details.
 - Add a customer-controlled replacement action with a cooldown.
 - Replace direct driver completion with code verification.
 - Enforce assigned-driver access, code attempt limits, single use, and invalidation in Convex.
@@ -47,7 +47,7 @@ Excluded:
 
 ## Error handling and live updates
 
-Return plain-language errors for a wrong, replaced, locked, or already-used code. Invalid submissions must persist the failed-attempt count while returning retry feedback. The driver can retry while the code remains valid. If the attempt limit is reached, prompt the customer to request a replacement in their order details. Convex subscriptions should update the customer’s code state and both parties’ delivery status after a replacement or successful confirmation.
+Return plain-language errors for a wrong, replaced, locked, or already-used code. Invalid submissions must persist the failed-attempt count while returning retry feedback. The driver can retry while the code remains valid. If the attempt limit is reached, prompt the customer to request a replacement in their order details. Convex subscriptions should update the customerâ€™s code state and both partiesâ€™ delivery status after a replacement or successful confirmation.
 
 If the order is cancelled or already delivered, the customer query must not return a code and the driver mutation must refuse completion. Keep the existing driver retry feedback for network or mutation failures without treating an unconfirmed request as delivered.
 
@@ -71,3 +71,4 @@ If the order is cancelled or already delivered, the customer query must not retu
 4. Show the code and replacement control in the customer's active order details.
 5. Replace the driver's completion dialog with code entry, accessible numeric input, and retry/lockout messages.
 6. Verify customer ownership, driver assignment, terminal-status invalidation, attempt limits, and live updates through the existing app workflow.
+

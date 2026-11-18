@@ -62,3 +62,4 @@ Use Convex mutations and subscriptions already used by the dashboard so checklis
 3. Replace the queue's inline item summary with a responsive image-and-checklist list.
 4. Gate the **Preparing** to **Ready** action on the subscribed checklist state and report mutation failures.
 5. Verify the checklist, live sharing, role access and status gate in the app's existing workflow.
+

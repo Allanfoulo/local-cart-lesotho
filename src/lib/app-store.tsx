@@ -844,3 +844,4 @@ export const PAYMENT_STATUS_LABEL: Record<Payment["status"], string> = {
 };
 
 export const MOBILE_MONEY_PROVIDERS = ["EcoCash", "M-Pesa", "Other mobile money"];
+

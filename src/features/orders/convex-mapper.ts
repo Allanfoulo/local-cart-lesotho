@@ -109,3 +109,4 @@ export function mapConvexCustomer(customer: Doc<"customers">): Customer {
     lastOrder: new Date(customer.lastOrderAt).toISOString(),
   };
 }
+

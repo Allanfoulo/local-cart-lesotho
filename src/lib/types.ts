@@ -187,3 +187,4 @@ export interface NotificationPreference {
   description: string;
   enabled: boolean;
 }
+

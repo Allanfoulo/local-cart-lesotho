@@ -149,7 +149,7 @@ export function StaffWorkspace({ initialStoreId }: { initialStoreId?: string }) 
       <main className="min-w-0">
         <header className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-primary">REETAPELE · STAFF</p>
+            <p className="text-sm font-semibold text-primary">REETAPELE Â· STAFF</p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">{heading}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Your store workspace. Authorized changes sync across the team.
@@ -397,7 +397,7 @@ function CustomersPanel() {
                     >
                       {customer.phone}
                     </a>
-                    {customer.email && <span> · {customer.email}</span>}
+                    {customer.email && <span> Â· {customer.email}</span>}
                   </p>
                 </div>
                 <div className="text-sm sm:text-right">
@@ -419,10 +419,10 @@ function CustomersPanel() {
                         className="flex flex-wrap justify-between gap-x-4 gap-y-1 px-3 py-2"
                       >
                         <span>
-                          {order.number} · {order.address.area}
+                          {order.number} Â· {order.address.area}
                         </span>
                         <span className="text-muted-foreground">
-                          {ORDER_STATUS_LABEL[order.status]} · {formatM(order.total)} ·{" "}
+                          {ORDER_STATUS_LABEL[order.status]} Â· {formatM(order.total)} Â·{" "}
                           {formatDate(order.createdAt)}
                         </span>
                       </li>
@@ -555,7 +555,7 @@ function ReportsPanel() {
                       ?.name ?? "Removed product"}
                   </span>
                   <span className="text-right font-medium">
-                    {item.quantity} {item.unit} · {formatM(item.value)}
+                    {item.quantity} {item.unit} Â· {formatM(item.value)}
                   </span>
                 </li>
               ))}
@@ -568,7 +568,7 @@ function ReportsPanel() {
         </section>
       </div>
       <p className="rounded-xl bg-muted/60 p-3 text-xs text-muted-foreground">
-        Paid and outstanding totals follow each order’s recorded payment status; delivery status
+        Paid and outstanding totals follow each orderâ€™s recorded payment status; delivery status
         does not count as proof of payment. These are operational summaries, not accounting exports.
       </p>
     </section>
@@ -622,7 +622,7 @@ function OrderRow({
           )}
         </div>
         <p className="mt-1 text-sm">
-          {order.customer.name} · {order.customer.phone} · {order.address.area}
+          {order.customer.name} Â· {order.customer.phone} Â· {order.address.area}
         </p>
         <section className="mt-3" aria-label={`Items for order ${order.number}`}>
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -658,7 +658,7 @@ function OrderRow({
         <p className="mt-1 text-sm font-semibold">
           {formatM(order.total)}{" "}
           <span className="font-normal text-muted-foreground">
-            · {PAYMENT_LABEL[order.payment.method]} ({order.payment.status})
+            Â· {PAYMENT_LABEL[order.payment.method]} ({order.payment.status})
           </span>
         </p>
         <details className="mt-2">
@@ -667,7 +667,7 @@ function OrderRow({
           </summary>
           <p className="mt-2 text-sm">
             {order.address.address}
-            {order.address.landmark ? ` · Near ${order.address.landmark}` : ""}
+            {order.address.landmark ? ` Â· Near ${order.address.landmark}` : ""}
           </p>
           {order.address.instructions && (
             <p className="text-sm text-muted-foreground">Driver: {order.address.instructions}</p>
@@ -678,7 +678,7 @@ function OrderRow({
                 {event.status === "note"
                   ? event.note
                   : (ORDER_STATUS_LABEL[event.status as OrderStatus] ?? "Order placed")}{" "}
-                ·{" "}
+                Â·{" "}
                 {new Date(event.at).toLocaleString("en-GB", {
                   dateStyle: "medium",
                   timeStyle: "short",
@@ -912,7 +912,7 @@ function SettingsPanel() {
         </p>
       )}
       <Button disabled={saving} onClick={() => void submitSettings()}>
-        {saving ? "Saving…" : "Save settings"}
+        {saving ? "Savingâ€¦" : "Save settings"}
       </Button>
       {saved && (
         <p role="status" className="text-sm text-primary">
@@ -922,3 +922,4 @@ function SettingsPanel() {
     </section>
   );
 }
+

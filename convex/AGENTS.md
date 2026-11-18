@@ -18,3 +18,4 @@ Own persistent catalog, checkout, and order history capabilities implemented on 
 - Snapshot order item names and prices so later catalog edits do not change existing orders.
 - Keep order, stock, customer aggregate, and initial event writes in one mutation transaction.
 - Run Convex code generation after schema/function changes and keep generated files checked in.
+

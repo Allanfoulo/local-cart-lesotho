@@ -6,3 +6,4 @@ export default defineApp({
     GOOGLE_MAPS_ROUTES_API_KEY: v.optional(v.string()),
   },
 });
+

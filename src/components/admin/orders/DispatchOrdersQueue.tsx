@@ -55,10 +55,10 @@ export function DispatchOrdersQueue({ storeId }: { storeId?: string } = {}) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-semibold">
-                        {order.number} · {order.customer.name}
+                        {order.number} Â· {order.customer.name}
                       </p>
                       <p className="mt-0.5 text-sm text-muted-foreground">
-                        {order.address.area} · {formatDate(order.createdAt)}
+                        {order.address.area} Â· {formatDate(order.createdAt)}
                       </p>
                     </div>
                     <span className="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium">
@@ -101,7 +101,7 @@ export function DispatchOrdersQueue({ storeId }: { storeId?: string } = {}) {
                   <p className="mt-1 text-sm font-semibold">
                     {formatM(order.total)}
                     <span className="font-normal text-muted-foreground">
-                      {` · ${PAYMENT_LABEL[order.payment.method]} (${order.payment.status})`}
+                      {` Â· ${PAYMENT_LABEL[order.payment.method]} (${order.payment.status})`}
                     </span>
                   </p>
                   {order.assignedStaff && <p className="mt-1 text-sm text-muted-foreground">Preparation: {order.assignedStaff}</p>}
@@ -207,3 +207,4 @@ export function DispatchOrdersQueue({ storeId }: { storeId?: string } = {}) {
     </section>
   );
 }
+

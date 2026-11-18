@@ -71,7 +71,7 @@ export function CustomerDeliveryConfirmation({
             disabled={busy || secondsUntilReplacement > 0}
             onClick={() => void requestCode()}
           >
-            {busy ? "Updating code…" : confirmation ? "Get a new code" : "Generate delivery code"}
+            {busy ? "Updating codeâ€¦" : confirmation ? "Get a new code" : "Generate delivery code"}
           </Button>
           {secondsUntilReplacement > 0 && (
             <p className="text-sm text-muted-foreground">Available again in {secondsUntilReplacement}s.</p>
@@ -82,3 +82,4 @@ export function CustomerDeliveryConfirmation({
     </section>
   );
 }
+

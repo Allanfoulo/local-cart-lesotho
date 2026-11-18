@@ -367,3 +367,4 @@ export default defineSchema({
     .index("by_aggregate", ["aggregateType", "aggregateId", "occurredAt"])
     .index("by_store_time", ["storeId", "occurredAt"]),
 });
+

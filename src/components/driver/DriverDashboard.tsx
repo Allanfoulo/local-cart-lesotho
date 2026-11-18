@@ -129,9 +129,9 @@ export function DriverDashboard() {
         <header className="mb-5 flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-              REETAPELE · Driver
+              REETAPELE Â· Driver
             </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight">Today’s deliveries</h1>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight">Todayâ€™s deliveries</h1>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <WorkspaceSwitcher />
@@ -149,7 +149,7 @@ export function DriverDashboard() {
 
           {deliveryProjection === undefined ? (
             <div className="rounded-2xl border bg-card px-5 py-10 text-center text-sm text-muted-foreground" role="status">
-              Loading assigned deliveries…
+              Loading assigned deliveriesâ€¦
             </div>
           ) : currentStop ? (
             <article className="overflow-hidden rounded-2xl border bg-card">
@@ -159,7 +159,7 @@ export function DriverDashboard() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold">
-                    {currentStop.number} · {currentStop.customer.name}
+                    {currentStop.number} Â· {currentStop.customer.name}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {currentStop.status === "ready" ? "Ready to collect" : "Out for delivery"}
@@ -241,7 +241,7 @@ export function DriverDashboard() {
                 </Button>
                 {updateError && <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm">
                   <p>{updateError}</p>
-                  {failedUpdate && <Button className="mt-2 min-h-11" variant="outline" disabled={busyStopId !== null} onClick={() => void updateStop(failedUpdate)}>{busyStopId === failedUpdate.id ? "Retrying…" : "Retry update"}</Button>}
+                  {failedUpdate && <Button className="mt-2 min-h-11" variant="outline" disabled={busyStopId !== null} onClick={() => void updateStop(failedUpdate)}>{busyStopId === failedUpdate.id ? "Retryingâ€¦" : "Retry update"}</Button>}
                 </div>}
               </div>
             </article>
@@ -250,7 +250,7 @@ export function DriverDashboard() {
               <span className="mx-auto grid size-12 place-items-center rounded-full bg-muted text-primary">
                 <Check className="size-6" />
               </span>
-              <h3 className="mt-3 font-semibold">You’re all caught up</h3>
+              <h3 className="mt-3 font-semibold">Youâ€™re all caught up</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 Ready orders assigned to you will appear here.
               </p>
@@ -293,10 +293,10 @@ export function DriverDashboard() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">
-                      {order.number} · {order.customer.name}
+                      {order.number} Â· {order.customer.name}
                     </p>
                     <p className="mt-0.5 text-sm text-muted-foreground">
-                      {order.address.area} · {order.address.landmark || "No landmark"}
+                      {order.address.area} Â· {order.address.landmark || "No landmark"}
                     </p>
                   </div>
                   <span className="text-sm text-muted-foreground">{formatM(order.total)}</span>
@@ -327,7 +327,7 @@ export function DriverDashboard() {
               />
               <p className="px-2 py-2 text-xs text-muted-foreground">
                 {liveTrip
-                  ? "The current customer’s verified delivery pin and your live location are shown while this stop is active."
+                  ? "The current customerâ€™s verified delivery pin and your live location are shown while this stop is active."
                   : "Pins show approximate neighbourhood centres. Live location sharing starts when you begin the next stop."}
               </p>
             </div>
@@ -341,7 +341,7 @@ export function DriverDashboard() {
       <AlertDialog open={pendingDelivery !== null} onOpenChange={(open) => { if (!open && busyStopId === null) { setPendingDelivery(null); setDeliveryCode(""); setUpdateError(""); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Enter the customer’s delivery code</AlertDialogTitle>
+            <AlertDialogTitle>Enter the customerâ€™s delivery code</AlertDialogTitle>
             <AlertDialogDescription>
               Ask the customer to show the code from their REETAPELE order details. Confirm only after handing over order {pendingDelivery?.number}.
             </AlertDialogDescription>
@@ -432,3 +432,4 @@ function DriverLocationReporter({ orderId }: { orderId: Id<"orders"> }) {
     </p>
   );
 }
+
