@@ -836,6 +836,7 @@ export const PAYMENT_LABEL = {
   mobile_money: "Mobile Money",
   cash_on_delivery: "Cash on Delivery",
   card: "Card",
+  mopay: "MoPay",
 } as const;
 
 export const PAYMENT_STATUS_LABEL: Record<Payment["status"], string> = {

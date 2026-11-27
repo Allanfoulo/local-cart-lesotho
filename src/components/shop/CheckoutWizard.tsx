@@ -1,8 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useConvexAuth } from "convex/react";
-import { useMutation } from "convex/react";
+import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Check, ChevronLeft, ChevronRight, LoaderCircle, MapPin, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +23,25 @@ type CheckoutInput = {
 
 const PENDING_CHECKOUT_STORAGE_KEY = "reetapele.pending-checkout";
 type PendingCheckout = { checkoutId: string; cartFingerprint: string };
+
+function isValidMoPayPaymentUrl(paymentUrl: string | undefined): paymentUrl is string {
+  if (!paymentUrl) return false;
+  try {
+    const url = new URL(paymentUrl);
+    return (
+      url.protocol === "https:" &&
+      url.hostname.toLowerCase() === "mopay.co.ls" &&
+      url.port === "" &&
+      /^\/pay\/[^/]+$/.test(url.pathname) &&
+      url.search === "" &&
+      url.hash === "" &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+}
 
 function checkoutErrorMessage(reason: unknown) {
   const raw = reason instanceof Error ? reason.message : "";
@@ -254,8 +272,12 @@ export function CheckoutWizard() {
 function ConvexCheckoutWizard() {
   const s = useAppStore();
   const placeGuestOrder = useMutation(api.orders.placeGuestOrder);
+  const mopayAvailability = useQuery(api.mopay.getAvailability, {});
+  const startMopayPayment = useAction(api.mopay.startCheckoutPayment);
   return (
     <CheckoutWizardForm
+      mopayEnabled={mopayAvailability?.enabled === true}
+      startMopayPayment={startMopayPayment}
       submitOrder={async ({ checkoutId, customer, address, payment, couponCode }) => {
         const receipt = await placeGuestOrder({
           checkoutId,
@@ -297,8 +319,15 @@ function ConvexCheckoutWizard() {
 
 function CheckoutWizardForm({
   submitOrder,
+  startMopayPayment,
+  mopayEnabled,
 }: {
   submitOrder: (input: CheckoutInput) => Promise<string>;
+  startMopayPayment: (args: { checkoutId: string }) => Promise<{
+    status: string;
+    paymentUrl?: string;
+  }>;
+  mopayEnabled: boolean;
 }) {
   const s = useAppStore();
   const groups = groupCartByStore(s.cart, s.stores.length ? s.stores : [s.shop]);
@@ -390,15 +419,24 @@ function CheckoutWizardForm({
     });
     setLandmarkSearch("");
   };
-  const allowed = (key: Method) =>
-    key === "card"
-      ? false
-      : key === "mobile_money"
-        ? groups.every((group) => group.store.paymentOptions.mobileMoney)
-        : key === "cash_on_delivery"
-          ? groups.every((group) => group.store.paymentOptions.cashOnDelivery)
-          : groups.every((group) => group.store.paymentOptions.card);
-  const hasSharedPaymentMethod = allowed("cash_on_delivery") || allowed("mobile_money");
+  const cashOnDeliveryAvailable =
+    groups.length > 0 && groups.every((group) => group.store.paymentOptions.cashOnDelivery);
+  const manualMobileMoneyAvailable =
+    groups.length > 0 && groups.every((group) => group.store.paymentOptions.mobileMoney);
+  const allowed = (key: Method) => {
+    if (key === "card") return false;
+    if (key === "mopay")
+      return (
+        mopayEnabled &&
+        groups.length > 0 &&
+        groups.every((group) => group.store.paymentOptions.mobileMoney)
+      );
+    if (key === "mobile_money") return manualMobileMoneyAvailable;
+    if (key === "cash_on_delivery") return cashOnDeliveryAvailable;
+    return false;
+  };
+  const hasSharedPaymentMethod =
+    allowed("cash_on_delivery") || allowed("mobile_money") || allowed("mopay");
   const continueStep = () => {
     setError("");
     if (step === 0) {
@@ -480,9 +518,9 @@ function CheckoutWizardForm({
       );
       return;
     }
-    const payment = {
+    const payment: Payment = {
       method,
-      provider: method === "mobile_money" ? provider : undefined,
+      provider: method === "mopay" ? "MoPay" : method === "mobile_money" ? provider : undefined,
       status: method === "cash_on_delivery" ? ("unpaid" as const) : ("pending" as const),
       cashGiven: method === "cash_on_delivery" && cashGiven ? Number(cashGiven) : undefined,
       exactAmount: method === "cash_on_delivery" ? cashGiven === "" : undefined,
@@ -519,6 +557,21 @@ function CheckoutWizardForm({
         });
       clearPendingCheckout(checkoutId.current.checkoutId);
       checkoutId.current = undefined;
+      if (method === "mopay") {
+        try {
+          const paymentAttempt = await startMopayPayment({ checkoutId: receiptId });
+          if (
+            paymentAttempt.status === "ready" &&
+            isValidMoPayPaymentUrl(paymentAttempt.paymentUrl)
+          ) {
+            window.location.assign(paymentAttempt.paymentUrl);
+            return;
+          }
+        } catch {
+          // The order already exists. Keep it available on its receipt so the
+          // customer can safely check or resume payment without placing again.
+        }
+      }
       void navigate({ to: "/order-confirmation/$id", params: { id: receiptId } });
     } catch (placeError) {
       setError(checkoutErrorMessage(placeError));
@@ -761,6 +814,7 @@ function CheckoutWizardForm({
                       "Mobile money",
                       "Arrange a separate transfer with each store.",
                     ],
+                    ["mopay", "MoPay", "Pay securely with M-Pesa, EcoCash, or card on MoPay."],
                     ["card", "Card", "Card processing is not configured yet."],
                   ] as [Method, string, string][]
                 )
@@ -868,11 +922,13 @@ function CheckoutWizardForm({
                 </>
               )}
               <p className="mt-4 rounded-xl bg-muted p-3 text-sm text-muted-foreground">
-                {method === "mobile_money"
-                  ? "Payment stays pending until the store confirms your mobile money transfer."
-                  : method === "cash_on_delivery"
-                    ? "Your driver collects payment at delivery. No online payment is taken."
-                    : "Card payments are not configured; this order will remain pending until the store confirms payment."}
+                {method === "mopay"
+                  ? "You will choose M-Pesa, EcoCash, or card on MoPay's secure hosted page. We will confirm payment before showing it as paid."
+                  : method === "mobile_money"
+                    ? "Payment stays pending until the store confirms your mobile money transfer."
+                    : method === "cash_on_delivery"
+                      ? "Your driver collects payment at delivery. No online payment is taken."
+                      : "Card payments are not configured; this order will remain pending until the store confirms payment."}
               </p>
             </section>
           )}
@@ -972,11 +1028,13 @@ function CheckoutWizardForm({
                 <div className="mt-3 border-t pt-3">
                   <h3 className="font-semibold">Payment</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {method === "mobile_money"
-                      ? `${provider} · payment pending`
-                      : method === "cash_on_delivery"
-                        ? `Cash on delivery${cashGiven ? ` · bring ${formatM(Number(cashGiven))}${Number(cashGiven) > total ? ` · change ${formatM(Number(cashGiven) - total)}` : ""}` : " · exact amount if possible"}`
-                        : "Card · pending"}
+                    {method === "mopay"
+                      ? "MoPay - M-Pesa, EcoCash, or card"
+                      : method === "mobile_money"
+                        ? `${provider} · payment pending`
+                        : method === "cash_on_delivery"
+                          ? `Cash on delivery${cashGiven ? ` · bring ${formatM(Number(cashGiven))}${Number(cashGiven) > total ? ` · change ${formatM(Number(cashGiven) - total)}` : ""}` : " · exact amount if possible"}`
+                          : "Card · pending"}
                   </p>
                   <Button variant="link" className="h-auto px-0 py-2" onClick={() => setStep(1)}>
                     Change payment
@@ -1036,6 +1094,8 @@ function CheckoutWizardForm({
                   </>
                 ) : !isAuthenticated ? (
                   "Create account to place order"
+                ) : method === "mopay" ? (
+                  `Continue to MoPay: ${formatM(total)}`
                 ) : (
                   `Place order · ${formatM(total)}`
                 )}
@@ -1101,4 +1161,3 @@ function CheckoutWizardForm({
     </main>
   );
 }
-

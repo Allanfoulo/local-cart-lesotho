@@ -103,7 +103,7 @@ export interface DeliveryLandmark {
   lng: number;
 }
 
-export type PaymentMethod = "mobile_money" | "cash_on_delivery" | "card";
+export type PaymentMethod = "mobile_money" | "cash_on_delivery" | "card" | "mopay";
 
 export interface Payment {
   method: PaymentMethod;
@@ -187,4 +187,3 @@ export interface NotificationPreference {
   description: string;
   enabled: boolean;
 }
-

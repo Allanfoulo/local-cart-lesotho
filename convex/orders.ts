@@ -11,6 +11,7 @@ const paymentMethod = v.union(
   v.literal("mobile_money"),
   v.literal("cash_on_delivery"),
   v.literal("card"),
+  v.literal("mopay"),
 );
 
 function generateDeliveryConfirmationCode() {
@@ -143,7 +144,8 @@ export const placeGuestOrder = mutation({
           throw new Error(`${store.name} does not deliver to ${area}.`);
         if (
           (args.paymentMethod === "mobile_money" && !settings.mobileMoneyEnabled) ||
-          (args.paymentMethod === "cash_on_delivery" && !settings.cashOnDeliveryEnabled)
+          (args.paymentMethod === "cash_on_delivery" && !settings.cashOnDeliveryEnabled) ||
+          (args.paymentMethod === "mopay" && !settings.mobileMoneyEnabled)
         ) {
           throw new Error(`${store.name} does not accept that payment method.`);
         }
@@ -790,6 +792,9 @@ export const setPaymentStatus = mutation({
     const order = await ctx.db.get(orderId);
     if (!order) throw new ConvexError("Order not found.");
     const { userId } = await requireStoreRole(ctx, order.storeId, ["store_owner", "store_manager"]);
+    if (order.payment.method === "mopay") {
+      throw new ConvexError("MoPay payment status is managed by provider verification.");
+    }
     if (order.payment.status === status) return null;
     await ctx.db.patch(orderId, { payment: { ...order.payment, status } });
     await ctx.db.insert("domainEvents", {

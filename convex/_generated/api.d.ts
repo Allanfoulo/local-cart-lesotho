@@ -20,6 +20,7 @@ import type * as invitations from "../invitations.js";
 import type * as lib_authorization from "../lib/authorization.js";
 import type * as lib_environment from "../lib/environment.js";
 import type * as memberships from "../memberships.js";
+import type * as mopay from "../mopay.js";
 import type * as orders from "../orders.js";
 import type * as seed from "../seed.js";
 import type * as stores from "../stores.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   "lib/authorization": typeof lib_authorization;
   "lib/environment": typeof lib_environment;
   memberships: typeof memberships;
+  mopay: typeof mopay;
   orders: typeof orders;
   seed: typeof seed;
   stores: typeof stores;
