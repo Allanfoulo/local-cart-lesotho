@@ -31,6 +31,9 @@ type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
   readonly GOOGLE_MAPS_ROUTES_API_KEY: string | undefined;
+  readonly MOPAY_API_KEY: string | undefined;
+  readonly MOPAY_REDIRECT_BASE_URL: string | undefined;
+  readonly MOPAY_WEBHOOK_TOKEN: string | undefined;
 };
 
 /**

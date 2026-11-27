@@ -14,6 +14,18 @@ const paymentMethod = v.union(
   v.literal("mobile_money"),
   v.literal("cash_on_delivery"),
   v.literal("card"),
+  v.literal("mopay"),
+);
+const mopayRail = v.union(v.literal("mpesa"), v.literal("ecocash"), v.literal("card"));
+const mopayPaymentStatus = v.union(
+  v.literal("creating"),
+  v.literal("ready"),
+  v.literal("pending"),
+  v.literal("paid"),
+  v.literal("failed"),
+  v.literal("cancelled"),
+  v.literal("expired"),
+  v.literal("unknown"),
 );
 const orderStatus = v.union(
   v.literal("received"),
@@ -253,6 +265,7 @@ export default defineSchema({
       method: paymentMethod,
       status: paymentStatus,
       exactAmount: v.optional(v.boolean()),
+      selectedRail: v.optional(mopayRail),
     }),
     subtotal: v.number(),
     discount: v.optional(v.number()),
@@ -279,6 +292,43 @@ export default defineSchema({
     changeRequired: v.optional(v.number()),
     createdAt: v.number(),
   }).index("by_checkout_id", ["checkoutId"]),
+  mopayCheckoutPayments: defineTable({
+    checkoutId: v.string(),
+    customerUserId: v.id("users"),
+    total: v.number(),
+    orderIds: v.array(v.id("orders")),
+    currentAttemptId: v.id("mopayPaymentAttempts"),
+    status: mopayPaymentStatus,
+    selectedRail: v.optional(mopayRail),
+    providerTransactionId: v.optional(v.string()),
+    updatedAt: v.number(),
+  }).index("by_checkout_id", ["checkoutId"]),
+  mopayPaymentAttempts: defineTable({
+    checkoutId: v.string(),
+    customerUserId: v.id("users"),
+    attemptNumber: v.number(),
+    attemptId: v.string(),
+    reference: v.string(),
+    expectedAmount: v.number(),
+    status: mopayPaymentStatus,
+    sessionId: v.optional(v.string()),
+    paymentUrl: v.optional(v.string()),
+    selectedRail: v.optional(mopayRail),
+    providerTransactionId: v.optional(v.string()),
+    reservationExpiresAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_checkout_and_attempt", ["checkoutId", "attemptNumber"])
+    .index("by_attempt_id", ["attemptId"])
+    .index("by_reference", ["reference"])
+    .index("by_session_id", ["sessionId"]),
+  mopayWebhookEvents: defineTable({
+    eventId: v.string(),
+    eventType: v.string(),
+    checkoutId: v.optional(v.string()),
+    processedAt: v.number(),
+  }).index("by_event_id", ["eventId"]),
   orderEvents: defineTable({
     orderId: v.id("orders"),
     orderNumber: v.string(),
